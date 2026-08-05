@@ -3658,7 +3658,81 @@ function getValveGcmPin(code){
   return map[String(code)] || "applicable GCM pin per SWI-106";
 }
 
+/** SWI-206 Code 78 (Brake Valve Fault, pages 25-28). This platform has only ONE
+ *  valve (the proportional brake valve) — no separate locking-solenoid codes
+ *  26/27/79/80 exist here, so this branch only ever needs to cover Code 78.
+ *  Seakeeper 1 uses a different fuse-holder wiring check than Seakeeper 4-14,
+ *  and — importantly — Seakeeper 1's guide says to contact Product Support
+ *  BEFORE replacing the harness, while 4-14 says to replace it directly. */
+function workflow_valves_206(){
+  const n = modelNumber(selectedModel());
+  const is1 = n === 1;
+  const dcRange = (n === 10 || n === 14) ? "18–28 VDC (24V Seakeeper)" : "11–15 VDC (12V Seakeeper)";
+  return [
+    {
+      title:"SWI-206 Code 78 – Initial Checks",
+      pdfPage:26,
+      instruction:"With a multimeter in DC Volts mode, MEASURE voltage between pins 1 and 2 of the DC INPUT supply connector: should read " + dcRange + ". IF unsatisfactory, troubleshoot vessel electrical first. VERIFY wire harness connectors at the manifold are connected per their labels (NOTE: brake valve and pressure switch connectors look similar). ACTIVATE brake override. DISCONNECT the wire harness connector from the proportional brake valve coil and VERIFY Code 78 sets on the display/MFD app. With the harness disconnected, VERIFY voltage between pins 1 and 2 of the valve's harness connector is within 1 volt of the DC INPUT supply voltage from step 1. In the solenoid harness connector, VERIFY pins are fully inserted and crimps intact — if loose wires/crimps are found, turn off low-current DC power and repair.",
+      fields:[
+        numberField("v6_dc_in","1) DC INPUT supply voltage, pins 1–2 (VDC)"),
+        choiceField("v6_dc_ok","1) Voltage within " + dcRange,["YES","NO"]),
+        choiceField("v6_labels","2) Manifold harness connectors correct per labels",["YES","NO"]),
+        choiceField("v6_override","3) Brake override activated",["YES","NO"]),
+        choiceField("v6_disc","4) Harness disconnected from prop brake valve coil",["YES","NO"]),
+        choiceField("v6_code_set","5) Code 78 sets on display/MFD with harness disconnected",["YES","NO"]),
+        numberField("v6_coil_v","6) Voltage at valve harness connector pins 1–2 (VDC)"),
+        choiceField("v6_coil_v_ok","6) Within 1V of DC INPUT supply voltage",["YES","NO"]),
+        choiceField("v6_pins","7) Solenoid harness connector pins/crimps intact",["YES","NO","REPAIRED"]),
+        notesField("v6_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 78 – Seakeeper 1 Harness/GCM Checks",
+      instruction:"REMOVE the control power red 10A fuse (beneath the brake assembly, rear). With a multimeter in Resistance mode, CONFIRM resistance below 0.3 Ω between brake valve pin 1 and terminal A of the control power 10A fuse holder. CONFIRM resistance 0.3 Ω or less between brake valve pin 2 and GCM pin 11. VERIFY no short between prop valve pins 1 and 2. In both the GCM and brake valve connectors, verify pins are fully inserted and crimps intact — repair any loose wires. IF any resistance or short check is UNSATISFACTORY, SUBMIT readings and an information-screen photo to Seakeeper Product Support BEFORE replacing the harness.",
+      condition:() => is1,
+      fields:[
+        numberField("v6_1_r_fuse","9b) Resistance: brake valve pin 1 to 10A fuse holder terminal A (Ω, spec <0.3Ω)"),
+        numberField("v6_1_r_gcm","9c) Resistance: brake valve pin 2 to GCM pin 11 (Ω, spec ≤0.3Ω)"),
+        choiceField("v6_1_short","9d) Short between prop valve pins 1–2",["YES","NO"]),
+        choiceField("v6_1_conn","9e) GCM / brake valve connector pins & crimps intact (repaired if needed)",["YES","NO","REPAIRED"]),
+        choiceField("v6_1_unsatisfactory","9f) Any check unsatisfactory",["YES","NO"]),
+        Object.assign(choiceField("v6_1_support","9f) Data + photo submitted to Product Support BEFORE replacing harness",["YES","NO","N/A"]), {
+          condition:() => responses.v6_1_unsatisfactory === "YES"
+        }),
+        notesField("v6_1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 78 – Seakeeper 4 and Above Harness/GCM Checks",
+      instruction:"DISCONNECT the main power relay from the harness. With a multimeter in Resistance mode, CONFIRM resistance below 0.3 Ω between power relay connector pin 30 and pin 1 of the brake valve connector. CONFIRM resistance 0.3 Ω or less between brake valve pin 2 and GCM pin 11. VERIFY no short between prop valve pins 1 and 2. In both the GCM and brake valve connectors, verify pins are fully inserted and crimps intact — repair any loose wires. IF any resistance or short check is UNSATISFACTORY, REPLACE the wire harness.",
+      condition:() => !is1,
+      fields:[
+        numberField("v6_4_r_relay","10b) Resistance: power relay pin 30 to brake valve pin 1 (Ω, spec <0.3Ω)"),
+        numberField("v6_4_r_gcm","10c) Resistance: brake valve pin 2 to GCM pin 11 (Ω, spec ≤0.3Ω)"),
+        choiceField("v6_4_short","10d) Short between prop valve pins 1–2",["YES","NO"]),
+        choiceField("v6_4_conn","10e) GCM / brake valve connector pins & crimps intact (repaired if needed)",["YES","NO","REPAIRED"]),
+        choiceField("v6_4_harness_replace","10f) Wire harness replaced (any check unsatisfactory)",["YES","NO","N/A"]),
+        notesField("v6_4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 78 – Completion",
+      instruction:"IF the alarm persists, CONTACT Seakeeper Product Support with data from the electrical checks and a summary of steps taken.",
+      fields:[
+        choiceField("v6_alarm_persist","11) Alarm persists",["YES","NO"]),
+        choiceField("v6_final_clear","Final) Alarm clear",["YES","NO"]),
+        choiceField("v6_photo","Final) Information-screen photo attached",["YES","NO"]),
+        textField("v6_parts","Final) Parts replaced"),
+        textField("v6_repairs","Final) Repairs performed"),
+        textField("v6_case","Final) Support case number / instructions"),
+        notesField("v6_final","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_valves(){
+  if(usesSwi206()) return workflow_valves_206();
   const code = responses.meta?.code || el("code").value;
   const gcmPin = getValveGcmPin(code);
   const n = modelNumber(selectedModel());
@@ -4221,7 +4295,67 @@ function workflow_115(){
   ];
 }
 
+/** SWI-206 Brake Override Inoperable (pages 32-34). Very similar structure to
+ *  SWI-106's version, but: no 3.5" display (5"/MFD app only), no IMU-connection
+ *  check (that's a large-model-only step), and the manifold-solenoid referral
+ *  points only to Code 78 (this platform has no Code 26/27/79/80). */
+function workflow_brake_override_206(){
+  const n = modelNumber(selectedModel());
+  const dcRange = (n === 10 || n === 14) ? "22–32 VDC (24V system)" : "11–15 VDC (12V system)";
+  return [
+    {
+      title:"SWI-206 Brake Override Inoperable – Display & Connections",
+      pdfPage:33,
+      instruction:"This procedure assumes no alarms are active — the only symptom is inability to precess with override activated. If an alarm IS active, address it first via the normal troubleshooting guide. No override is available while the flywheel is rotating; verify flywheel RPM reads zero on the service screen first. VERIFY display functional: cycle DC control power, then test the MFD app / 5\" touch display by activating and deactivating Glycol Override. IF a display issue is found, connect a spare 5\" display, activate brake override, and if the enclosure can now be manually precessed, troubleshoot MFD app/display connectivity. VERIFY electrical connections at the brake valve and GCM are secure, and that harness connector labels match their devices (brake valve and pressure switch connectors look similar).",
+      fields:[
+        choiceField("bo6_zero","0) Flywheel confirmed at zero RPM before testing overrides",["YES","NO"]),
+        choiceField("bo6_click","0) Clicking sound heard at manifold solenoid when override activated at rest",["YES","NO"]),
+        choiceField("bo6_cycle","1a) DC control power cycled",["YES","NO"]),
+        choiceField("bo6_glycol","1b) Glycol Override activate/deactivate test performed on MFD/5\" display",["PASSED","FAILED"]),
+        Object.assign(choiceField("bo6_spare","1c/d) Spare 5\" display connected — enclosure now precesses with override",["YES","NO","N/A"]), {
+          condition:() => responses.bo6_glycol === "FAILED"
+        }),
+        choiceField("bo6_conn","2) Electrical connections at brake valve and GCM secure",["YES","NO"]),
+        choiceField("bo6_labels","3) Harness connector labels match devices (brake valve vs. pressure switch)",["YES","NO"]),
+        notesField("bo6_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Brake Override Inoperable – Power & Solenoid Checks",
+      instruction:"ENSURE DC supply voltage is normal: disconnect the DC INPUT connector, verify voltage within 0.6 VDC of battery voltage at the vessel supply connector, and confirm " + dcRange + ". For Seakeeper 4.5 or above, ENSURE the MFD app/display Service screen does NOT show \"1234 RPM\" — if this Motor Drive fault is seen, REPLACE the Motor Drive Box. IF no sound is heard locally at the manifold OR the solenoid does not become warm when brake override is activated, CHECK the manifold solenoid per the Code 78 Troubleshooting Guide. IF the solenoid energizes and only limited manual precession is allowed, CHECK for freedom of movement of the enclosure and guide bands. IF brake override remains inoperable, CONTACT Seakeeper Product Support with a summary of all actions taken and test results.",
+      fields:[
+        numberField("bo6_dc_v","4) DC supply voltage measured (VDC)"),
+        choiceField("bo6_dc_ok","4) Within 0.6V of battery voltage and " + dcRange,["YES","NO"]),
+        Object.assign(choiceField("bo6_1234","5) \"1234 RPM\" Motor Drive fault shown on service screen (4.5+ only)",["YES","NO","N/A"]), { }),
+        Object.assign(choiceField("bo6_mdb_replace","5) Motor Drive Box replaced",["YES","NO","N/A"]), {
+          condition:() => responses.bo6_1234 === "YES"
+        }),
+        choiceField("bo6_solenoid_check","6) Manifold solenoid checked per Code 78 guide (no sound / not warming)",["YES","NO","N/A"]),
+        choiceField("bo6_freedom","7) Freedom of movement of enclosure / guide bands checked (limited precession)",["YES","NO","N/A"]),
+        choiceField("bo6_persist","8) Brake override remains inoperable",["YES","NO"]),
+        Object.assign(choiceField("bo6_support","8) Product Support contacted with summary/results",["YES","NO","N/A"]), {
+          condition:() => responses.bo6_persist === "YES"
+        }),
+        notesField("bo6_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Brake Override Inoperable – Completion",
+      instruction:"Document final status, parts, and repairs. Reference SWI-211 (Brake Assembly Replacement) if the brake assembly itself required replacement.",
+      fields:[
+        choiceField("bo6_final_clear","Final) Override now functional",["YES","NO"]),
+        choiceField("bo6_photo","Final) Information-screen photo attached",["YES","NO"]),
+        textField("bo6_parts","Final) Parts replaced"),
+        textField("bo6_repairs","Final) Repairs performed"),
+        textField("bo6_case","Final) Support case number / instructions"),
+        notesField("bo6_final","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_brake_override(){
+  if(usesSwi206()) return workflow_brake_override_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2",
