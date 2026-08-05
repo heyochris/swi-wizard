@@ -2556,6 +2556,10 @@ function modelSupportsRestrictedCode(code, model){
   if(code === "120") return usesSwi206(model) && n === 1;
   // Code 98 — AC Mains Low, AC-powered models only (Seakeeper 4.5/10/14 on SWI-206)
   if(code === "98" && usesSwi206(model)) return n === 10 || n === 14 || /Seakeeper\s*4\.5\b/i.test(String(model || ""));
+  // Codes 111/112/167/168 — DC Input/High Current Voltage faults, DC-powered models only (Seakeeper 1/4 on SWI-206)
+  if((code === "111" || code === "112" || code === "167" || code === "168") && usesSwi206(model)){
+    return n === 1 || (n === 4 && !/Seakeeper\s*4\.5\b/i.test(String(model || "")));
+  }
   return true;
 }
 
@@ -2595,6 +2599,9 @@ function restrictedCodeMessage(code){
   }
   if(code === "98"){
     return "Code 98 (AC Mains Low) only applies to AC-powered Seakeeper models (4.5/10/14 on SWI-206).";
+  }
+  if(code === "111" || code === "112" || code === "167" || code === "168"){
+    return "Code " + code + " (DC Input / High Current Voltage) only applies to DC-powered Seakeeper models (1/4 on SWI-206).";
   }
   return "Code " + code + " may not apply to the selected model. Confirm model applicability in the reference guide before continuing.";
 }
@@ -7859,7 +7866,99 @@ function workflow_107_108_109_110_132_252(){
   ];
 }
 
+/** SWI-206 Code 111/112 & 167/168 — DC Input Voltage Low (Speed Loss/Slow Spool)/High Current DC Voltage Low/High (DC models only) (SWI-206 pages 221-229) */
+function workflow_111_168_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const is1 = n === 1;
+  return [
+    {
+      title:"SWI-206 Code 111/112/167/168 – Background",
+      pdfPage:221,
+      instruction:"CODES: DC Input Voltage Low [Speed Loss During Operation] (111), DC Input Voltage Low [Slow Spool Up] (112), High Current DC Voltage Low (167), High Current DC Voltage High (168). BACKGROUND: DC-powered Seakeepers (1/4) adjust power consumption as voltage drops below 11.1 VDC to protect the battery bank, lowering speed until RPM reaches 67% of target (Code 111). If spooling up when this occurs, Code 112 results instead. Activated when GCM senses <600W draw and DC input voltage is low. If incoming DC voltage drops below 10V, Notice 167 (2nd Stage) displays; Code 41 (DC Power In Low) appears around the same voltage. Most likely cause is actual low battery voltage during operation/start-up — check DC power supply; a battery with acceptable voltage/specific gravity may still have poor capacity from sulfation/corrosion (a load test can reveal this). Code 168 is possible if high current voltage rises above normal range — Seakeeper 1 Curtis drive is less tolerant of over-voltage, alarming near 15 VDC. REFERENCES: 90511 – Seakeeper 1 Cable Block Diagram, 90699 – Seakeeper 4 Cable Block Diagram, TB-90603 – DC Seakeeper Electrical Integration Diagrams.",
+      fields:[choiceField("c111_168_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c111_168_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Electrical Installation Inspection",
+      pdfPage:222,
+      instruction:"1) THOROUGHLY INSPECT Seakeeper electrical installation: a) CONFIRM supply battery voltage within limits of Attachment 2 (Voltage Code Thresholds) table. b) INSPECT Battery Isolator and breakers for tight terminal connections, no wire damage, no excessive corrosion. i) IF remote battery switch (RBS) used in place of isolator, REFER to alignment diagram. ii) INSPECT DC breakers for proper operation, tight connections, no damage/corrosion. iii) COMPARE voltage readings from battery terminals to output of breakers. iv) IF issues found, TURN OFF associated breaker, PERFORM repairs. v) TURN ON circuit breaker after repairs.",
+      fields:[
+        choiceField("c111_168_battery_voltage_ok","1a) Supply battery voltage within Attachment 2 limits",["YES","NO"]),
+        choiceField("c111_168_isolator_ok","1b) Battery Isolator/breakers: tight connections, no damage/corrosion",["YES","NO"]),
+        numberField("c111_168_v_battery","1b.iii) Battery terminal voltage (VDC)"),
+        numberField("c111_168_v_breaker_output","1b.iii) Breaker output voltage (VDC)"),
+        Object.assign(choiceField("c111_168_repairs_performed","1b.iv) Repairs performed on breaker/wiring",["YES","NO","N/A"]), { condition:() => responses.c111_168_isolator_ok === "NO" }),
+        notesField("c111_168_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Battery Terminal Access & Voltage",
+      pdfPage:223,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 2) ACCESS Seakeeper battery input terminals: c) ENSURE: i) 12VDC source has ampacity for all non-associated loads and continuous amps for Seakeeper. ii) IF battery bank below 12.0V, CHARGE above 12.0V. iii) VERIFY electrical installation (Attachment 1) — no damage to supply cables. NOTE: Seakeeper recommends three 90 Amp-Hour AGM house batteries (or equivalent) for Seakeeper 1 and 4. a) PLACE Seakeeper in safe condition (zero RPM, all power off). b) IF Seakeeper 1, ACCESS B+/B- terminals beneath heat exchanger. c) IF Seakeeper 4, REMOVE battery terminal cover of MDB with T15 Torx bit. 3) VERIFY high current input cables installed in correct location and torqued per Torque Specification section. 4) TURN ON low current DC breaker to Seakeeper.",
+      fields:[
+        numberField("c111_168_v_bank","c) Battery bank voltage (VDC, charge if below 12.0V)"),
+        choiceField("c111_168_cables_ok","c.iii) Electrical installation verified, no cable damage",["YES","NO"]),
+        choiceField("c111_168_terminals_torqued","3) High current input cables correctly located and torqued",["YES","NO"]),
+        notesField("c111_168_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Input Voltage Measurement",
+      pdfPage:224,
+      instruction:"NOTE: A multimeter that can capture peak min/max voltages (e.g. Fluke 269) is recommended. 5) With multimeter in DC Volts mode, RECORD input voltage — spec 11-15 VDC (11.2-14.7 VDC for Seakeeper 1). 6) IF battery terminals of Seakeeper show significantly lower voltage than battery, TROUBLESHOOT vessel electrical line to Seakeeper.",
+      fields:[
+        numberField("c111_168_v_input", is1 ? "5) Input voltage (VDC, spec 11.2–14.7 for Seakeeper 1)" : "5) Input voltage (VDC, spec 11–15)"),
+        choiceField("c111_168_voltage_drop_significant","6) Significant voltage drop vs battery terminals",["YES","NO"]),
+        Object.assign(choiceField("c111_168_vessel_line_troubleshot","6) Vessel electrical line troubleshot",["YES","NO","N/A"]), { condition:() => responses.c111_168_voltage_drop_significant === "YES" }),
+        notesField("c111_168_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Operational Test",
+      pdfPage:225,
+      instruction:"7) PERFORM operational test (at dock or underway) with normal electrical source aligned: a) IF Seakeeper 1: i) COMPARE voltage at outlet of supply breaker with battery terminals. ii) IF voltage at Seakeeper terminals >1.0V lower than breaker output, REPLACE supply cables with line filter. b) TURN OFF all breakers. c) ATTACH multimeter probes (DC Volts) to B+/B- terminals of MDB/Curtis drive. d) STATION individual at power supply if necessary. e) TURN ON all breakers. f) MONITOR multimeter for voltage dipping below 10.0 VDC. g) REPEAT cycling minimum 3 times for repeatability. h) IF voltage did NOT dip, CONTINUE. i) IF voltage dipped, NOTE any alarm received that will not allow reset and TROUBLESHOOT per applicable code guide.",
+      fields:[
+        Object.assign(choiceField("c111_168_sk1_voltage_diff","7a.ii) [Seakeeper 1] Voltage difference breaker output vs terminals >1.0V",["YES","NO","N/A"]), { condition:() => is1 }),
+        Object.assign(choiceField("c111_168_sk1_cables_replaced","7a.ii) [Seakeeper 1] Supply cables/line filter replaced",["YES","NO","N/A"]), { condition:() => is1 && responses.c111_168_sk1_voltage_diff === "YES" }),
+        choiceField("c111_168_voltage_dipped","7f/g) Voltage dipped below 10.0 VDC during power cycling (3x)",["YES","NO"]),
+        Object.assign(choiceField("c111_168_alarm_noted","7i) Alarm noted (does not allow reset)",["YES","NO","N/A"]), { condition:() => responses.c111_168_voltage_dipped === "YES" }),
+        notesField("c111_168_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Load Testing (Spool-Up)",
+      pdfPage:226,
+      condition:() => responses.c111_168_voltage_dipped !== "YES",
+      instruction:"8) With probes still attached, TURN ON all breakers. NOTE: Possible large vessel loads: windlass, bow thrusters, DC refrigeration compressor, inverters, blowers, refrigeration clutches, trolling motors, engine starter motor. 9) START Seakeeper flywheel motor spool-up. 10) WHILE MONITORING input voltage, CYCLE large vessel loads one by one: a) IF voltage drops below 10.0 VDC upon load start, INSPECT that load's DC cabling for loose bus connections/cable damage/tap locations. b) IF spool-up aborted during test, RESTART spool-up, NOTE stopping. c) IF voltage spikes above 15.0 VDC (14.7 VDC for Seakeeper 1) upon securing load, PERFORM vessel electrical system evaluation. d) RECORD results. 11) WHEN Seakeeper reaches target RPM, UNLOCK Seakeeper.",
+      fields:[
+        choiceField("c111_168_spoolup_load_drop","10a) Voltage dropped below 10.0 VDC during load cycling",["YES","NO"]),
+        Object.assign(choiceField("c111_168_load_cable_inspected","10a) Load DC cabling inspected",["YES","NO","N/A"]), { condition:() => responses.c111_168_spoolup_load_drop === "YES" }),
+        choiceField("c111_168_spoolup_aborted","10b) Spool-up aborted during test",["YES","NO"]),
+        choiceField("c111_168_spoolup_spike", is1 ? "10c) Voltage spiked above 14.7 VDC (Seakeeper 1) upon securing load" : "10c) Voltage spiked above 15.0 VDC upon securing load",["YES","NO"]),
+        notesField("c111_168_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 111/112/167/168 – Load Testing (Running) & Completion",
+      pdfPage:227,
+      condition:() => responses.c111_168_voltage_dipped !== "YES",
+      instruction:"12) WHILE MONITORING input voltage, CYCLE large vessel loads one by one: a) IF voltage drops below 9.0 VDC upon load start, INSPECT that load's DC cabling. b) IF voltage spikes above 15.0 VDC upon securing load, PERFORM vessel electrical system evaluation. c) RECORD results. 13) IF alarm persists, CONTACT Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) with all test results and electrical alignment at time of alarm (shore power or underway).",
+      fields:[
+        choiceField("c111_168_running_load_drop","12a) Voltage dropped below 9.0 VDC during running load test",["YES","NO"]),
+        choiceField("c111_168_running_load_spike","12b) Voltage spiked above 15.0 VDC upon securing load",["YES","NO"]),
+        choiceField("c111_168_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c111_168_support_contacted","13) Product Support contacted",["YES","NO","N/A"]), { condition:() => responses.c111_168_final_alarm_clear === "NO" }),
+        textField("c111_168_electrical_alignment","13) Electrical alignment at time of alarm (shore power/underway)"),
+        textField("c111_168_case","Final) Support case number / instructions"),
+        textField("c111_168_repairs","Final) Repairs performed"),
+        notesField("c111_168_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_111_112_167_168(){
+  if(usesSwi206()) return workflow_111_168_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
