@@ -1265,13 +1265,41 @@ let swiPdfSource = ""; // bundled | idb | file
 const BUNDLED_SWI_PDF = "SWI-106_Troubleshooting_Guide.pdf";
 const SWI_DOC_FILES = {
   "SWI-106": "SWI-106_Troubleshooting_Guide.pdf",
-  "SWI-206": "SWI-206_Troubleshooting_Guide.pdf"
+  "SWI-206": "SWI-206_Troubleshooting_Guide.pdf",
+  "SWI-211": "SWI-211_Brake_Assembly_Replacement.pdf",
+  "SWI-109": "SWI-109_Brake_Bushing_Replacement.pdf",
+  "SWI-118": "SWI-118_Service_Tool_Guide.pdf",
+  "SWI-137": "SWI-137_ConnectBox_Data_Log_Retrieval.pdf",
+  "SWI-124": "SWI-124_Motor_Lead_Testing.pdf"
 };
 const SWI_DOC_LABELS = {
   "SWI-106": "Reference guide (106)",
-  "SWI-206": "Reference guide (206)"
+  "SWI-206": "Reference guide (206)",
+  "SWI-211": "Brake Assembly Replacement (211)",
+  "SWI-109": "Brake Bushing Replacement (109)",
+  "SWI-118": "Service Tool Guide (118)",
+  "SWI-137": "ConnectBox Data Log (137)",
+  "SWI-124": "Motor Lead Testing (124)"
 };
-const SECONDARY_SWI_MAPS = {"SWI-206":{"start":1,"end":308,"steps":{}}};
+const SECONDARY_SWI_MAPS = {
+  "SWI-206":{"start":1,"end":308,"steps":{}},
+  "SWI-211":{"start":2,"end":15,"steps":{
+    "1":2,"2":2,"3":3,"4":3,"5":3,"6":3,"7":3,"8":4,"9":5,"10":5,"11":5,
+    "12":6,"13":6,"14":7,"15":7,"16":7,"17":8,"18":8,"19":9,"20":10,"21":10,
+    "22":11,"23":11,"24":11,"25":11,"26":12,"27":12,"28":12,"29":13,"30":13,
+    "31":13,"32":14,"33":14,"34":14,"35":14,"36":14,"37":14,"38":14,"39":15,"40":15
+  }},
+  "SWI-109":{"start":3,"end":21,"steps":{
+    "1":3,"2":3,"3":3,"4":3,"5":4,"6":6,"7":6,"8":7,"9":7,"10":8,"11":8,"12":8,
+    "13":9,"14":11,"15":12,"16":13,"17":14,"18":16,"19":17,"20":18,"21":19,
+    "22":19,"23":19,"24":19,"25":19,"26":19,"27":19,"28":20,"29":20,"30":20,"31":20,"32":20
+  }},
+  "SWI-118":{"start":3,"end":20,"steps":{"1":3,"LOGGER":15,"UPDATE":7,"PROGRAM":19,"PVMO":18}},
+  "SWI-137":{"start":2,"end":6,"steps":{
+    "1":2,"2":3,"3":3,"4":4,"5":4,"6":4,"7":4,"8":5,"9":5,"10":5,"11":5,"12":6,"13":6
+  }},
+  "SWI-124":{"start":3,"end":16,"steps":{"1":3,"AC1":3,"DC1":10}}
+};
 let activeSwiDocId = "SWI-106";
 let swiDocManualLock = "";
 const SWI_PDF_DB = "seakeeper_swi106_pdf_v37";
@@ -1560,6 +1588,21 @@ function parseDocStepNumber(docId, text){
     let m = s.match(/SWI-111[^\d]{0,40}Steps?\s+(\d{1,3})/i);
     if(m) return m[1];
     return "1";
+  }
+  if(docId === "SWI-118"){
+    if(/PVMO/i.test(s)) return "PVMO";
+    if(/RE-?PROGRAM(?:MING)?\s+(?:the\s+)?GCM|PROGRAM(?:MING)?\s+GCM\s+using/i.test(s)) return "PROGRAM";
+    if(/UPDATE\b.{0,40}software|software\s+update|achieved through the Seakeeper Service Tool/i.test(s)) return "UPDATE";
+    if(/data\s*log|logg(?:er|ing)|CAN\s*data/i.test(s)) return "LOGGER";
+    return "1";
+  }
+  if(docId === "SWI-124"){
+    try{
+      const model = selectedModel();
+      const n = modelNumber(model);
+      const isAC = (n === 10 || n === 14 || /4\.5/.test(String(model || "")));
+      return isAC ? "AC1" : "DC1";
+    }catch(e){ return "1"; }
   }
   if(/^SWI-|^TB-/.test(docId) && docId !== "SWI-106"){
     const esc = docId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
