@@ -1,4 +1,4 @@
-const CACHE_NAME = "swi-wizard-v13";
+const CACHE_NAME = "swi-wizard-v14";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -6,6 +6,11 @@ const ASSETS = [
   "./icon-512.png",
   "./SWI-106_Troubleshooting_Guide.pdf",
   "./SWI-206_Troubleshooting_Guide.pdf",
+  "./SWI-211_Brake_Assembly_Replacement.pdf",
+  "./SWI-109_Brake_Bushing_Replacement.pdf",
+  "./SWI-118_Service_Tool_Guide.pdf",
+  "./SWI-137_ConnectBox_Data_Log_Retrieval.pdf",
+  "./SWI-124_Motor_Lead_Testing.pdf",
   "./pdfjs/pdf.min.js",
   "./pdfjs/pdf.worker.min.js"
 ];
