@@ -7787,7 +7787,49 @@ function workflow_103(){
   ];
 }
 
+/** SWI-206 Code 107-110/132/252 — Display/Drive/IMU/ConnectBox Software Incompatible / Incompatible GCM (SWI-206 pages 218-220) */
+function workflow_107_252_206(){
+  return [
+    {
+      title:"SWI-206 Code 107-110/132/252 – Background",
+      pdfPage:218,
+      instruction:"CODES: Display Incompatible (107), Drive Software Incompatible (108), Drive Software Model Incompatible (109), IMU Software Incompatible (110), ConnectBox Software Incompatible (132), Incompatible GCM (252). BACKGROUND: All incompatibility alarms except Code 252 result from the GCM receiving CAN messaging from a device identifying itself with a hardware/software version that won't function with the current GCM software (incorrect hardware/software on the device or the GCM). The display sets Code 252, identifying the GCM as having incorrect software for the display's current software — could be from incorrect GCM or Display software, an \"M-Series\" display connected to an \"SK-Series\" Seakeeper, older GCM software, or the display connected to the vessel NMEA backbone. REFERENCES: SWI-118 – Service Tool Application, TB-90555 – Display Software Compatibility.",
+      fields:[choiceField("c107_252_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c107_252_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 107-110/132/252 – Initial Checks & Software Update",
+      pdfPage:219,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) CHECK Information screen software versions are populated with software numbers. 2) ENSURE flywheel at zero RPM at MFD app/display. 3) TURN OFF all breakers to Seakeeper. 4) CHECK harness GCM, harness MDB, and display/ConnectBox connections are made securely. 5) IF ConnectBox/display software version is older than most recent release, UPDATE display software to clear Code 107 or 132. 6) IF Code 107 or 132 and all software versions populated and ConnectBox/display software update attempted without clearing alarm, REPLACE ConnectBox/display with new display. NOTE: Software updating is achieved through the Seakeeper Service Tool Application (SWI-118).",
+      fields:[
+        choiceField("c107_252_versions_populated","1) Software versions populated on Information screen",["YES","NO"]),
+        choiceField("c107_252_connections_secure","4) GCM/MDB/display/ConnectBox connections secure",["YES","NO"]),
+        Object.assign(choiceField("c107_252_display_updated","5) Display/ConnectBox software updated",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("c107_252_display_replaced","6) ConnectBox/display replaced (update did not clear alarm)",["YES","NO","N/A"]), { condition:() => responses.c107_252_display_updated === "YES" }),
+        notesField("c107_252_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 107-110/132/252 – Component Update/Replacement",
+      pdfPage:220,
+      instruction:"7) IF component software (MDB, IMU, or GCM) found incompatible, UPDATE OR REPLACE applicable component: a) IF Code 108 or 109, UPDATE OR REPLACE MDB / Curtis drive. b) IF Code 110, REPLACE IMU. c) IF Code 252 (despite alarm clearing by cycling power), VERIFY display cable does NOT run near other higher-current-carrying cables/devices. d) IF Code 252 and 5\" Touch Display installed: i) ENSURE cable connections correct per diagram. ii) ENSURE 5\" display software is version 7.41.1.2586 or later. iii) CONTACT Seakeeper Product Support to ensure GCM software is correct for current component setup. 8) RETURN replaced hardware component(s) to Seakeeper. 9) TURN ON all power breakers to Seakeeper. 10) IF alarm persists, CONTACT Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) with notes of actions taken, photos of Information screen and alarm history pages.",
+      fields:[
+        Object.assign(choiceField("c107_252_mdb_updated","7a) MDB / Curtis drive updated or replaced",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("c107_252_imu_replaced","7b) IMU replaced",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("c107_252_cable_routing_ok","7c) Display cable routing verified (no proximity to high-current cables)",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("c107_252_5in_display_sw","7d.ii) 5\" display software version 7.41.1.2586 or later",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("c107_252_support_contacted_gcm","7d.iii) Product Support contacted (GCM software verification)",["YES","NO","N/A"]), { condition:() => true }),
+        choiceField("c107_252_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c107_252_support_contacted_final","10) Product Support contacted with notes/photos",["YES","NO","N/A"]), { condition:() => responses.c107_252_final_alarm_clear === "NO" }),
+        textField("c107_252_case","Final) Support case number / instructions"),
+        textField("c107_252_parts","Final) Parts replaced"),
+        notesField("c107_252_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_107_108_109_110_132_252(){
+  if(usesSwi206()) return workflow_107_252_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
