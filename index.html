@@ -2374,10 +2374,11 @@ const ALARMS = {
   "122":{title:"LATCH MECH SOLENOID CURRENT LOW",applies:"See model applicability (SWI-206)",summary:"Current to the latch solenoid dropped below 200mA when the enclosure is to be locked"},
   "115":{title:"PROP VALVE CURRENT HIGH IN LOCK",applies:"See model applicability",summary:"Proportional valve current high while locked"},
   "BRAKE_OVERRIDE":{title:"BRAKE OVERRIDE INOPERABLE",applies:"See model applicability",summary:"Unable to precess with brake override; no active alarm path"},
-  "6":{title:"DRIVE TEMP HIGH",applies:"See model applicability",summary:"Code 6 is triggered when the motor drive box (MDB) temperature exceeds the set point of 65°C/149°F (70°C/158°F in DC-powered models) in the Seakeeper controller initiating lock and coasting of the stabilizer. The alarm can be reset when the drive temperature drops below 60°C/140°"},
-  "104":{title:"DRIVE TEMPERATURE",applies:"See model applicability",summary:"Code 6 is triggered when the motor drive box (MDB) temperature exceeds the set point of 65°C/149°F (70°C/158°F in DC-powered models) in the Seakeeper controller initiating lock and coasting of the stabilizer. The alarm can be reset when the drive temperature drops below 60°C/140°"},
-  "155":{title:"DRIVE TEMPERATURE / COOLING",applies:"See model applicability",summary:"Code 6 is triggered when the motor drive box (MDB) temperature exceeds the set point of 65°C/149°F (70°C/158°F in DC-powered models) in the Seakeeper controller initiating lock and coasting of the stabilizer. The alarm can be reset when the drive temperature drops below 60°C/140°"},
-  "157":{title:"DRIVE TEMPERATURE",applies:"See model applicability",summary:"Code 6 is triggered when the motor drive box (MDB) temperature exceeds the set point of 65°C/149°F (70°C/158°F in DC-powered models) in the Seakeeper controller initiating lock and coasting of the stabilizer. The alarm can be reset when the drive temperature drops below 60°C/140°"},
+  "6":{title:"DRIVE TEMP HIGH",applies:"All models (SWI-206 set points are model-specific — see workflow)",summary:"MDB temperature exceeds a model-specific set point (e.g. 85°C on Seakeeper 1, 67–75°C sea mode on 4/4.5/10/14), causing the Seakeeper to lock and coast the flywheel until temperature drops back below the clear point"},
+  "10":{title:"COOLING SYSTEM ALERT",applies:"Seakeeper 4.5 and 10 only (SWI-206)",summary:"Protective feature triggered by a rapid 5–7°C rise in drive temperature within a 10-minute period while above 45°C — guards flywheel bearings against a fast glycol/seawater cooling failure that Code 6 wouldn't catch quickly enough"},
+  "104":{title:"DRIVE TEMPERATURE",applies:"All SWI-206 models",summary:"Drive temperature continues rising past the Code 6 threshold into a higher software-set limit, which may drive further action to reduce or eliminate power consumption to cut heat"},
+  "155":{title:"ENCODER TEMP",applies:"Seakeeper 1 only (SWI-206)",summary:"Warns of an over-temperature condition (70°C) in the Seakeeper 1 enclosure; a failed temperature sensor will instead read -40°C"},
+  "157":{title:"DRIVE TEMPERATURE WARNING",applies:"AC-powered models / Seakeeper 1 (SWI-206)",summary:"On AC-powered models, warns as MDB temperature nears the Code 6 set point (may not display but is logged in alarm history); on Seakeeper 1 it is an unexpected low-temperature (-40°C) warning"},
   "8":{title:"COOLANT PUMP 1 FAULT",applies:"See model applicability",summary:"The Coolant Pump 1 (and 2, for Seakeeper 35/30HD/40 models only) Fault alarm is produced when the glycol pump current draw is less than 0.25 A, indicating a bad connection, a faulty pump motor , or a lack of coolant. Subsequently, the alarm will clear once the amperage rises abov"},
   "9":{title:"COOLANT PUMP 2 FAULT",applies:"See model applicability",summary:"The Coolant Pump 1 (and 2, for Seakeeper 35/30HD/40 models only) Fault alarm is produced when the glycol pump current draw is less than 0.25 A, indicating a bad connection, a faulty pump motor , or a lack of coolant. Subsequently, the alarm will clear once the amperage rises abov"},
   "58":{title:"GLYCOL PUMP MALFUNCTION",applies:"See model applicability",summary:"Glycol pump malfunction uses the glycol through-flow / temperature-sensor path. Often paired with Code 8 troubleshooting. Check glycol level, pump operation with flywheel at speed unlocked, and heat-exchanger loop before replacing components. Secondary ref: SWI-107 glycol service."},
@@ -2537,6 +2538,8 @@ function modelSupportsRestrictedCode(code, model){
   if(code === "4" || code === "119" || code === "126" || code === "127" || code === "170") return usesSwi206(model) && n === 1;
   // Codes 121/122 — SWI-206 only, no SWI-106 equivalent
   if(code === "121" || code === "122") return usesSwi206(model);
+  // Code 10 — SWI-206 only, and only Seakeeper 4.5 and 10 (protective bearing feature)
+  if(code === "10") return usesSwi206(model) && (n === 10 || /Seakeeper\s*4\.5\b/i.test(String(model || "")));
   return true;
 }
 
@@ -2562,10 +2565,13 @@ function restrictedCodeMessage(code){
   if(code === "121" || code === "122"){
     return "Code " + code + " (Latch Mech Solenoid) only exists on SWI-206 models (Seakeeper 1, 4, 4.5, 10, 14).";
   }
+  if(code === "10"){
+    return "Code 10 (Cooling System Alert) only exists on Seakeeper 4.5 and 10.";
+  }
   return "Code " + code + " may not apply to the selected model. Confirm model applicability in the reference guide before continuing.";
 }
 
-const CODE_OPTION_CATALOG = [{"label": "Angle Sensor", "options": [{"value": "1", "text": "Code 1 – Angle Sensor Calibration Required"}, {"value": "19", "text": "Code 19 – Angle Sensor Fault: Active Range High"}, {"value": "50", "text": "Code 50 – Angle Sensor Fault: Out of Range"}, {"value": "55", "text": "Code 55 – Angle Sensor Fault: Active Range Low"}, {"value": "56", "text": "Code 56 – Angle Sensor Fault: Unresponsive"}, {"value": "106", "text": "Code 106 – Angle Sensor Fault"}]}, {"label": "CODE 12/13/14 – Low brake pressure alarms", "options": [{"value": "12", "text": "Code 12"}, {"value": "13", "text": "Code 13"}, {"value": "14", "text": "Code 14"}]}, {"label": "CODE 26/27/78/79/80", "options": [{"value": "26", "text": "Code 26"}, {"value": "27", "text": "Code 27"}, {"value": "78", "text": "Code 78"}, {"value": "79", "text": "Code 79"}, {"value": "80", "text": "Code 80"}]}, {"label": "CODE 31/37/38/39", "options": [{"value": "31", "text": "Code 31 – Gyro Rate Out of Range (Seakeeper 10/14 only)"}, {"value": "37", "text": "Code 37"}, {"value": "38", "text": "Code 38"}, {"value": "39", "text": "Code 39"}]}, {"label": "CODE 115", "options": [{"value": "115", "text": "Code 115"}]}, {"label": "BRAKE OVERRIDE INOPERABLE", "options": [{"value": "BRAKE_OVERRIDE", "text": "Brake Override Inoperable (no alarm code on display)"}]}, {"label": "CODE 6/104/155/157 – Drive temperature / cooling", "options": [{"value": "6", "text": "Code 6"}, {"value": "104", "text": "Code 104"}, {"value": "155", "text": "Code 155"}, {"value": "157", "text": "Code 157"}]}, {"label": "CODE 8/9/58 – Coolant / glycol pump", "options": [{"value": "8", "text": "Code 8 – Coolant Pump 1 Fault"}, {"value": "9", "text": "Code 9 – Coolant Pump 2 Fault"}, {"value": "58", "text": "Code 58 – Glycol Pump Malfunction"}]}, {"label": "CODE 15", "options": [{"value": "15", "text": "Code 15"}]}, {"label": "CODE 16/57 – Seawater pump", "options": [{"value": "16", "text": "Code 16 – Discrete Seawater Pump"}, {"value": "57", "text": "Code 57 – Seawater Pump Malfunction"}]}, {"label": "CODE 148/149 – Coolant temp sensor (SWI-206)", "options": [{"value": "148", "text": "Code 148 – Coolant Temperature Sensor Fault: Range High"}, {"value": "149", "text": "Code 149 – Coolant Temperature Sensor Fault: Range Low"}]}, {"label": "CODE 73/74", "options": [{"value": "73", "text": "Code 73"}, {"value": "74", "text": "Code 74"}]}, {"label": "CODE 105/161/162", "options": [{"value": "105", "text": "Code 105"}, {"value": "161", "text": "Code 161"}, {"value": "162", "text": "Code 162"}]}, {"label": "CODE 35/251", "options": [{"value": "35", "text": "Code 35"}, {"value": "251", "text": "Code 251"}]}, {"label": "CODE 36", "options": [{"value": "36", "text": "Code 36"}]}, {"label": "CODE 40/41/156", "options": [{"value": "40", "text": "Code 40"}, {"value": "41", "text": "Code 41"}, {"value": "156", "text": "Code 156"}]}, {"label": "CODE 43/154", "options": [{"value": "43", "text": "Code 43"}, {"value": "154", "text": "Code 154"}]}, {"label": "CODE 4/119/126/127/170 – Curtis drive/encoder (Seakeeper 1 only, SWI-206)", "options": [{"value": "4", "text": "Code 4 – Drive 5V Fault"}, {"value": "119", "text": "Code 119 – Encoder Failure"}, {"value": "126", "text": "Code 126 – Encoder Sig Sin"}, {"value": "127", "text": "Code 127 – Encoder Sig Cos"}, {"value": "170", "text": "Code 170 – Drive Reset Fault"}]}, {"label": "CODE 121/122 – Latch Mech Solenoid (SWI-206)", "options": [{"value": "121", "text": "Code 121 – Latch Mech Solenoid Not Detected"}, {"value": "122", "text": "Code 122 – Latch Mech Solenoid Current Low"}]}, {"label": "CODE 44/45", "options": [{"value": "44", "text": "Code 44"}, {"value": "45", "text": "Code 45"}]}, {"label": "CODE 72", "options": [{"value": "72", "text": "Code 72"}]}, {"label": "CODE 75", "options": [{"value": "75", "text": "Code 75"}]}, {"label": "CODE 76/77", "options": [{"value": "76", "text": "Code 76"}, {"value": "77", "text": "Code 77"}]}, {"label": "CODE 82/84", "options": [{"value": "82", "text": "Code 82"}, {"value": "84", "text": "Code 84"}]}, {"label": "CODE 83", "options": [{"value": "83", "text": "Code 83"}]}, {"label": "CODE 85–93", "options": [{"value": "85", "text": "Code 85"}, {"value": "86", "text": "Code 86"}, {"value": "87", "text": "Code 87"}, {"value": "88", "text": "Code 88"}, {"value": "89", "text": "Code 89"}, {"value": "90", "text": "Code 90"}, {"value": "91", "text": "Code 91"}, {"value": "92", "text": "Code 92"}, {"value": "93", "text": "Code 93"}]}, {"label": "CODE 94", "options": [{"value": "94", "text": "Code 94"}]}, {"label": "CODE 95/96", "options": [{"value": "95", "text": "Code 95"}, {"value": "96", "text": "Code 96"}]}, {"label": "CODE 98", "options": [{"value": "98", "text": "Code 98"}]}, {"label": "CODE 99–102", "options": [{"value": "99", "text": "Code 99"}, {"value": "100", "text": "Code 100"}, {"value": "101", "text": "Code 101"}, {"value": "102", "text": "Code 102"}]}, {"label": "CODE 103", "options": [{"value": "103", "text": "Code 103"}]}, {"label": "CODE 107–110/132/252", "options": [{"value": "107", "text": "Code 107"}, {"value": "108", "text": "Code 108"}, {"value": "109", "text": "Code 109"}, {"value": "110", "text": "Code 110"}, {"value": "132", "text": "Code 132"}, {"value": "252", "text": "Code 252"}]}, {"label": "CODE 111/112 & 167/168", "options": [{"value": "111", "text": "Code 111"}, {"value": "112", "text": "Code 112"}, {"value": "167", "text": "Code 167"}, {"value": "168", "text": "Code 168"}]}, {"label": "CODE 123", "options": [{"value": "123", "text": "Code 123"}]}, {"label": "CODE 129/130", "options": [{"value": "129", "text": "Code 129"}, {"value": "130", "text": "Code 130"}]}, {"label": "CODE 131", "options": [{"value": "131", "text": "Code 131"}]}, {"label": "CODE 150–153/165", "options": [{"value": "150", "text": "Code 150"}, {"value": "151", "text": "Code 151"}, {"value": "152", "text": "Code 152"}, {"value": "153", "text": "Code 153"}, {"value": "165", "text": "Code 165"}]}, {"label": "CODE 163", "options": [{"value": "163", "text": "Code 163"}]}, {"label": "MFD INTEGRATION", "options": [{"value": "MFD", "text": "Code MFD"}]}, {"label": "CODE 32", "options": [{"value": "32", "text": "Code 32"}]}, {"label": "CODE 116/117/118", "options": [{"value": "116", "text": "Code 116"}, {"value": "117", "text": "Code 117"}, {"value": "118", "text": "Code 118"}]}, {"label": "CODE 128/137/146", "options": [{"value": "128", "text": "Code 128"}, {"value": "137", "text": "Code 137"}, {"value": "146", "text": "Code 146"}]}, {"label": "NOISE & VIBRATION", "options": [{"value": "NOISE", "text": "Code NOISE"}]}, {"label": "CORROSION", "options": [{"value": "CORR", "text": "Code CORR"}]}, {"label": "PERFORMANCE ISSUES", "options": [{"value": "PERF", "text": "Code PERF"}]}];
+const CODE_OPTION_CATALOG = [{"label": "Angle Sensor", "options": [{"value": "1", "text": "Code 1 – Angle Sensor Calibration Required"}, {"value": "19", "text": "Code 19 – Angle Sensor Fault: Active Range High"}, {"value": "50", "text": "Code 50 – Angle Sensor Fault: Out of Range"}, {"value": "55", "text": "Code 55 – Angle Sensor Fault: Active Range Low"}, {"value": "56", "text": "Code 56 – Angle Sensor Fault: Unresponsive"}, {"value": "106", "text": "Code 106 – Angle Sensor Fault"}]}, {"label": "CODE 12/13/14 – Low brake pressure alarms", "options": [{"value": "12", "text": "Code 12"}, {"value": "13", "text": "Code 13"}, {"value": "14", "text": "Code 14"}]}, {"label": "CODE 26/27/78/79/80", "options": [{"value": "26", "text": "Code 26"}, {"value": "27", "text": "Code 27"}, {"value": "78", "text": "Code 78"}, {"value": "79", "text": "Code 79"}, {"value": "80", "text": "Code 80"}]}, {"label": "CODE 31/37/38/39", "options": [{"value": "31", "text": "Code 31 – Gyro Rate Out of Range (Seakeeper 10/14 only)"}, {"value": "37", "text": "Code 37"}, {"value": "38", "text": "Code 38"}, {"value": "39", "text": "Code 39"}]}, {"label": "CODE 115", "options": [{"value": "115", "text": "Code 115"}]}, {"label": "BRAKE OVERRIDE INOPERABLE", "options": [{"value": "BRAKE_OVERRIDE", "text": "Brake Override Inoperable (no alarm code on display)"}]}, {"label": "CODE 6/10/104/155/157 – Drive temperature / cooling", "options": [{"value": "6", "text": "Code 6"}, {"value": "10", "text": "Code 10 – Cooling System Alert (Seakeeper 4.5/10 only, SWI-206)"}, {"value": "104", "text": "Code 104"}, {"value": "155", "text": "Code 155"}, {"value": "157", "text": "Code 157"}]}, {"label": "CODE 8/9/58 – Coolant / glycol pump", "options": [{"value": "8", "text": "Code 8 – Coolant Pump 1 Fault"}, {"value": "9", "text": "Code 9 – Coolant Pump 2 Fault"}, {"value": "58", "text": "Code 58 – Glycol Pump Malfunction"}]}, {"label": "CODE 15", "options": [{"value": "15", "text": "Code 15"}]}, {"label": "CODE 16/57 – Seawater pump", "options": [{"value": "16", "text": "Code 16 – Discrete Seawater Pump"}, {"value": "57", "text": "Code 57 – Seawater Pump Malfunction"}]}, {"label": "CODE 148/149 – Coolant temp sensor (SWI-206)", "options": [{"value": "148", "text": "Code 148 – Coolant Temperature Sensor Fault: Range High"}, {"value": "149", "text": "Code 149 – Coolant Temperature Sensor Fault: Range Low"}]}, {"label": "CODE 73/74", "options": [{"value": "73", "text": "Code 73"}, {"value": "74", "text": "Code 74"}]}, {"label": "CODE 105/161/162", "options": [{"value": "105", "text": "Code 105"}, {"value": "161", "text": "Code 161"}, {"value": "162", "text": "Code 162"}]}, {"label": "CODE 35/251", "options": [{"value": "35", "text": "Code 35"}, {"value": "251", "text": "Code 251"}]}, {"label": "CODE 36", "options": [{"value": "36", "text": "Code 36"}]}, {"label": "CODE 40/41/156", "options": [{"value": "40", "text": "Code 40"}, {"value": "41", "text": "Code 41"}, {"value": "156", "text": "Code 156"}]}, {"label": "CODE 43/154", "options": [{"value": "43", "text": "Code 43"}, {"value": "154", "text": "Code 154"}]}, {"label": "CODE 4/119/126/127/170 – Curtis drive/encoder (Seakeeper 1 only, SWI-206)", "options": [{"value": "4", "text": "Code 4 – Drive 5V Fault"}, {"value": "119", "text": "Code 119 – Encoder Failure"}, {"value": "126", "text": "Code 126 – Encoder Sig Sin"}, {"value": "127", "text": "Code 127 – Encoder Sig Cos"}, {"value": "170", "text": "Code 170 – Drive Reset Fault"}]}, {"label": "CODE 121/122 – Latch Mech Solenoid (SWI-206)", "options": [{"value": "121", "text": "Code 121 – Latch Mech Solenoid Not Detected"}, {"value": "122", "text": "Code 122 – Latch Mech Solenoid Current Low"}]}, {"label": "CODE 44/45", "options": [{"value": "44", "text": "Code 44"}, {"value": "45", "text": "Code 45"}]}, {"label": "CODE 72", "options": [{"value": "72", "text": "Code 72"}]}, {"label": "CODE 75", "options": [{"value": "75", "text": "Code 75"}]}, {"label": "CODE 76/77", "options": [{"value": "76", "text": "Code 76"}, {"value": "77", "text": "Code 77"}]}, {"label": "CODE 82/84", "options": [{"value": "82", "text": "Code 82"}, {"value": "84", "text": "Code 84"}]}, {"label": "CODE 83", "options": [{"value": "83", "text": "Code 83"}]}, {"label": "CODE 85–93", "options": [{"value": "85", "text": "Code 85"}, {"value": "86", "text": "Code 86"}, {"value": "87", "text": "Code 87"}, {"value": "88", "text": "Code 88"}, {"value": "89", "text": "Code 89"}, {"value": "90", "text": "Code 90"}, {"value": "91", "text": "Code 91"}, {"value": "92", "text": "Code 92"}, {"value": "93", "text": "Code 93"}]}, {"label": "CODE 94", "options": [{"value": "94", "text": "Code 94"}]}, {"label": "CODE 95/96", "options": [{"value": "95", "text": "Code 95"}, {"value": "96", "text": "Code 96"}]}, {"label": "CODE 98", "options": [{"value": "98", "text": "Code 98"}]}, {"label": "CODE 99–102", "options": [{"value": "99", "text": "Code 99"}, {"value": "100", "text": "Code 100"}, {"value": "101", "text": "Code 101"}, {"value": "102", "text": "Code 102"}]}, {"label": "CODE 103", "options": [{"value": "103", "text": "Code 103"}]}, {"label": "CODE 107–110/132/252", "options": [{"value": "107", "text": "Code 107"}, {"value": "108", "text": "Code 108"}, {"value": "109", "text": "Code 109"}, {"value": "110", "text": "Code 110"}, {"value": "132", "text": "Code 132"}, {"value": "252", "text": "Code 252"}]}, {"label": "CODE 111/112 & 167/168", "options": [{"value": "111", "text": "Code 111"}, {"value": "112", "text": "Code 112"}, {"value": "167", "text": "Code 167"}, {"value": "168", "text": "Code 168"}]}, {"label": "CODE 123", "options": [{"value": "123", "text": "Code 123"}]}, {"label": "CODE 129/130", "options": [{"value": "129", "text": "Code 129"}, {"value": "130", "text": "Code 130"}]}, {"label": "CODE 131", "options": [{"value": "131", "text": "Code 131"}]}, {"label": "CODE 150–153/165", "options": [{"value": "150", "text": "Code 150"}, {"value": "151", "text": "Code 151"}, {"value": "152", "text": "Code 152"}, {"value": "153", "text": "Code 153"}, {"value": "165", "text": "Code 165"}]}, {"label": "CODE 163", "options": [{"value": "163", "text": "Code 163"}]}, {"label": "MFD INTEGRATION", "options": [{"value": "MFD", "text": "Code MFD"}]}, {"label": "CODE 32", "options": [{"value": "32", "text": "Code 32"}]}, {"label": "CODE 116/117/118", "options": [{"value": "116", "text": "Code 116"}, {"value": "117", "text": "Code 117"}, {"value": "118", "text": "Code 118"}]}, {"label": "CODE 128/137/146", "options": [{"value": "128", "text": "Code 128"}, {"value": "137", "text": "Code 137"}, {"value": "146", "text": "Code 146"}]}, {"label": "NOISE & VIBRATION", "options": [{"value": "NOISE", "text": "Code NOISE"}]}, {"label": "CORROSION", "options": [{"value": "CORR", "text": "Code CORR"}]}, {"label": "PERFORMANCE ISSUES", "options": [{"value": "PERF", "text": "Code PERF"}]}];
 
 function codeInGuideForModel(code, model){
   code = String(code || "");
@@ -4402,7 +4408,156 @@ function workflow_brake_override(){
   ];
 }
 
-function workflow_6_104_155_157(){
+/** SWI-206 Codes 6/10/104/155/157 (pages 35-52) — Drive temperature / cooling.
+ *  Rewritten from real SWI-206 text: no AC/DC-powered branching like SWI-106 —
+ *  instead Code 10 is exclusive to Seakeeper 4.5/10, and Code 155's encoder
+ *  temp-sensor teardown (Step 7) is exclusive to Seakeeper 1 and only shown
+ *  when Code 155 is the actual triggering code. */
+function workflow_6_104_155_157_206(triggerCode){
+  const is155 = triggerCode === "155";
+  return [
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Background & Set Points",
+      pdfPage:35,
+      instruction:"BACKGROUND: Code 6 triggers when motor drive box (MDB) temperature exceeds a model-specific set point, locking and coasting the flywheel (Seakeeper 1: alarm/clear 85°C; Seakeeper 4: alarm 75°C sea/78°C spooling, clear 65°C; Seakeeper 4.5: alarm 70°C sea/75°C spooling, clear 65°C; Seakeeper 10: alarm 70°C sea/78°C spooling, clear 65°C; Seakeeper 14: alarm 67°C sea/78°C spooling, clear 65°C). IF drive temperature continues rising past the drive's software limit, Code 104 triggers next. Code 10 is a PROTECTIVE FEATURE EXCLUSIVE TO SEAKEEPER 4.5 AND 10 — triggered by a 5–7°C rise in 10 minutes while above 45°C, protecting flywheel bearings from a fast glycol/seawater failure. Code 157 warns AC-powered models as temperature nears the Code 6 set point (may not display, but logs to alarm history); on Seakeeper 1, Code 157 is instead an unexpected LOW-temperature (-40°C) warning. Code 155 warns of a 70°C over-temperature condition in the Seakeeper 1 enclosure — IF the sensor has failed electrically it will read -40°C instead; troubleshoot Code 155 starting at the Encoder/Curtis Drive step below.",
+      fields:[
+        choiceField("c6_bg_reviewed","Background and applicable temperature set points reviewed for this model",["YES","NO"]),
+        numberField("c6_temp_reading","MDB / enclosure temperature reading at time of alarm (°C)"),
+        notesField("c6_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Seawater Pump Power Test",
+      pdfPage:37,
+      instruction:"1. ACTIVATE Seawater Override. 2. IF the seawater pump runs with override, SKIP to the Flow Rate Test step below. 3. IF the pump does NOT run: DEACTIVATE seawater override, then a) VERIFY the independent seawater pump supply breaker is ON, and b) VERIFY the seawater relay (Power Relay 2) nameplate voltage rating is appropriate for this model (12 VDC or 24 VDC systems).",
+      fields:[
+        choiceField("c6_pump_runs","1/2) Seawater pump runs with override activated",["YES","NO"]),
+        Object.assign(choiceField("c6_breaker_on","3a) Independent seawater pump supply breaker ON",["YES","NO"]), { condition:() => responses.c6_pump_runs === "NO" }),
+        Object.assign(choiceField("c6_relay_voltage_match","3b) Seawater relay nameplate voltage rating matches model (12V/24V)",["YES","NO"]), { condition:() => responses.c6_pump_runs === "NO" }),
+        notesField("c6_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Seawater Relay & Wiring Checks",
+      instruction:"c. REMOVE the seawater pump relay from the harness. d. With a multimeter, TEST the relay contacts using its pin markings as a guide: i. TEST coil resistance between pins 85 and 86 (12V relay spec ~90Ω ±10%/81-99Ω; 24V relay spec ~360Ω ±10%/324-396Ω). ii. ENSURE NO continuity (open loop) between pins 30 and 87. iii. ENSURE 0.3Ω or less between pins 30 and 87A. e. IF the resistance/continuity checks are unsatisfactory, THEN REPLACE the seawater pump relay. f. IF the supply breaker and relay checks are satisfactory, THEN VERIFY wiring at the seawater pump is correctly terminated. g. DISCONNECT seawater output power to the pump at the DC SW pump connector. h. ACTIVATE seawater override to continue testing.",
+      condition:() => responses.c6_pump_runs === "NO",
+      fields:[
+        numberField("c6_coil_r","d.i) Relay coil resistance, pins 85–86 (Ω)"),
+        choiceField("c6_open_loop_3087","d.ii) Open loop (no continuity) between pins 30–87 confirmed",["YES","NO"]),
+        numberField("c6_r_3087a","d.iii) Resistance pins 30–87A (Ω, spec ≤0.3Ω)"),
+        choiceField("c6_relay_replaced","e) Seawater pump relay replaced",["YES","NO","N/A"]),
+        choiceField("c6_wiring_terminated","f) Wiring at seawater pump verified correctly terminated",["YES","NO","N/A"]),
+        notesField("c6_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Seawater Cable & Pump Tests",
+      instruction:"j. TEST seawater pump power from the boat: disconnect the SW PUMP IN cable at the Seakeeper harness, check for 12/24 VDC between pins 1–2 from the boat breaker — IF voltage is absent, inspect breaker connections and replace the SW pump cable from boat to Seakeeper if needed; reconnect when done. k. TEST seawater pump power OUT of the Seakeeper: check 12/24 VDC at the SW PUMP OUT harness connector between pins 1–2 — IF absent, verify wires/crimps of both SW connectors and repair, or replace the wire harness if crimps are secure. l. TEST power at the pump/Y-branch cable: disconnect the SW PUMP OUT cable at the pump, check voltage at its end — IF absent, replace the cable; IF present, test the Y-branch cable (if installed) or replace the seawater pump. m. IF a Y-branch cable with valve is installed, test power at both Y-branch connectors — replace the Y-branch cable if voltage absent at either, or replace the pump/valve if voltage is present at both. n/o. DEACTIVATE seawater override and RECONNECT all connections when finished.",
+      condition:() => responses.c6_pump_runs === "NO",
+      fields:[
+        choiceField("c6_boat_supply_v","j) Voltage present at SW PUMP IN cable from boat (pins 1–2)",["YES","NO"]),
+        choiceField("c6_pump_out_v","k) Voltage present at SW PUMP OUT harness connector (pins 1–2)",["YES","NO"]),
+        choiceField("c6_pump_end_v","l) Voltage present at end of SW PUMP OUT cable at the pump",["YES","NO"]),
+        textField("c6_component_replaced","Component(s) replaced (cable / harness / Y-branch / pump)"),
+        notesField("c6_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Flow Rate & Air/Leak Checks",
+      pdfPage:40,
+      instruction:"4. With seawater override active, VERIFY flow is adequate per ATTACHMENT 1 (flow meter, or bucket and stopwatch). IF flow is insufficient: ENSURE plumbing is vented of air and routed on a continuous uphill run from intake to discharge (Attachment 2), CHECK the seawater strainer for clogging, CHECK that flow/ball valves and the seacock are fully open, and REPLACE the seawater pump per SB-90947 best practices if needed. 5. IF the pump runs with no flow and an electric ball valve is installed in the suction line, VERIFY the valve opens with override activated. 6. IF the pump is cavitating or air-locked: inspect piping/hoses/heat exchanger/discharge for leaks and repair any found; monitor the heat exchanger reservoir level with override active — IF level is rising/overflowing (seawater leaking into coolant), REPLACE the heat exchanger, flush the glycol system with at least 5 gal/19 L of freshwater, then flush per SWI-207. IF still air-locked, consider operator education, relocating the intake scoop, or upgrading to a self-priming pump.",
+      fields:[
+        numberField("c6_flow_rate","4) Measured seawater flow rate (GPM/LPM)"),
+        choiceField("c6_flow_ok","4) Flow within ATTACHMENT 1 spec for this model",["YES","NO"]),
+        Object.assign(choiceField("c6_plumbing_checked","4a) Plumbing vented/routed, strainer, and valves checked",["YES","NO","N/A"]), { condition:() => responses.c6_flow_ok === "NO" }),
+        choiceField("c6_leak_found","6) Leak found in piping/heat exchanger/discharge",["YES","NO"]),
+        choiceField("c6_hx_replaced","6g) Heat exchanger replaced + glycol system flushed (seawater leak into coolant)",["YES","NO","N/A"]),
+        notesField("c6_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 155 – Encoder Temp Sensor Initial Check (Seakeeper 1 Only)",
+      pdfPage:42,
+      condition:() => is155,
+      instruction:"7. IF ENCODER TEMP (Code 155) on Seakeeper 1: a) At the MFD app/display, OBSERVE enclosure temperature. b) IF it reads \"-40°C\", CONTINUE with this procedure (this indicates a sensor fault). c) TURN OFF the 12 VDC supply breaker to the Seakeeper. d) DISCONNECT the encoder from the harness. e) VERIFY pins/wires of the Deutsch connectors of the wire harness and encoder are secure. f) With a multimeter, MEASURE resistance between pins 4 and 5 of the encoder connector. g) ACCESS the Curtis drive per ATTACHMENT 3 (remove glycol reservoir and DC filter bracket). h) DISCONNECT the wire harness connector from the Curtis Drive.",
+      fields:[
+        choiceField("c155_temp_neg40","b) Enclosure temperature reads -40°C (sensor fault indicated)",["YES","NO"]),
+        choiceField("c155_breaker_off","c) 12VDC supply breaker turned OFF",["YES","NO"]),
+        numberField("c155_r_45","f) Resistance between encoder connector pins 4–5 (Ω)"),
+        choiceField("c155_connectors_secure","e) Deutsch connector pins/wires (harness + encoder) secure",["YES","NO"]),
+        notesField("c155_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 155 – Curtis Drive Harness Continuity (Seakeeper 1 Only)",
+      instruction:"i) VERIFY pins of the Curtis drive box and sockets of the harness connector for damage or corrosion; repair/replace as needed. j) With a multimeter, CONFIRM 0.3Ω or less within the wire harness from the encoder connector to the Curtis drive connector: i. between encoder pin 4 and Curtis connector pin 9, ii. between encoder pin 5 and Curtis connector pin 12. iii. IF either wire shows no or intermittent continuity, CONTACT Seakeeper Product Support with all details. iv. IF resistances are satisfactory, RECONNECT the Curtis drive and REATTACH the coolant reservoir and DC filter.",
+      condition:() => is155,
+      fields:[
+        choiceField("c155_drive_insp","i) Curtis drive box pins / harness sockets inspected, damage corrected",["YES","NO"]),
+        numberField("c155_r_pin9","j.i) Resistance encoder pin 4 to Curtis connector pin 9 (Ω, spec ≤0.3Ω)"),
+        numberField("c155_r_pin12","j.ii) Resistance encoder pin 5 to Curtis connector pin 12 (Ω, spec ≤0.3Ω)"),
+        choiceField("c155_continuity_ok","j) Continuity satisfactory on both wires",["YES","NO"]),
+        choiceField("c155_reconnected","j.iv) Curtis drive reconnected, coolant reservoir/DC filter reattached",["YES","NO","N/A"]),
+        notesField("c155_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 155 – Encoder Teardown & RTD Continuity (Seakeeper 1 Only)",
+      instruction:"k) TEST the encoder leads: i. ACTIVATE brake override. ii. MANUALLY PRECESS the enclosure fully toward the rear latch. iii. REMOVE the encoder housing snap cover. iv. REMOVE the encoder wiring shroud (two M2.5 Phillips pan head screws). v. REMOVE the encoder housing and lead from the enclosure (four Phillips flat head screws). vi. OPEN links of the flexible chain as needed to free enough cable for testing. vii. VERIFY 0.3Ω or less between circuit board pin 4 and encoder connector pin 4. viii. VERIFY 0.3Ω or less between circuit board pin 5 and encoder connector pin 5. ix. IF either reads greater than 0.3Ω or intermittent, REPLACE the encoder. x. RESTORE the encoder, shroud, and flexible chain lead. l) RESTORE power to the Seakeeper.",
+      condition:() => is155,
+      fields:[
+        choiceField("c155_teardown_done","k.i-vi) Encoder teardown steps completed",["YES","NO"]),
+        numberField("c155_rtd_pin4","k.vii) Resistance board pin 4 to connector pin 4 (Ω, spec ≤0.3Ω)"),
+        numberField("c155_rtd_pin5","k.viii) Resistance board pin 5 to connector pin 5 (Ω, spec ≤0.3Ω)"),
+        choiceField("c155_encoder_replaced","k.ix) Encoder replaced (either reading out of spec / intermittent)",["YES","NO","N/A"]),
+        choiceField("c155_power_restored","k.x/l) Encoder/shroud/chain restored, power restored to Seakeeper",["YES","NO"]),
+        notesField("c155_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Glycol Coolant System Check",
+      pdfPage:46,
+      instruction:"8. ENSURE proper coolant level in the heat exchanger (remove reservoir filler cap to check). IF level is low, inspect the glycol system for a leak, repair if found, and fill with the same 50/50 Ethylene Glycol/Distilled Water mixture per SWI-207 — CAUTION: glycol pump damage can occur from running without visible glycol in the reservoir. 9-10. ACTIVATE glycol override to circulate coolant and remove the filler cap. 11. CHECK that the glycol pump is running by touch/audible indication. a) IF no indication, PINCH the bypass hose of the enclosure cooling jackets and LISTEN for flow noise. b) IF the pump is NOT operating: back-probe the Deutsch connector and CONFIRM voltage between pin 1 of the harness connector to the glycol pump and frame ground (override still active). IF voltage reads less than 0.3V of DC input voltage: deactivate override, disconnect the GCM 70-pin connector, and VERIFY 0.3Ω or less between pin 2 of the glycol pump connector and GCM pin 15, AND between pin 1 of the glycol pump connector and the power relay pin 30 (OR pin 1 of the DC input harness connector on Seakeeper 1).",
+      fields:[
+        choiceField("c6_coolant_level_ok","8) Coolant level in heat exchanger adequate",["YES","NO"]),
+        Object.assign(choiceField("c6_leak_repaired","8a) Glycol leak found and repaired, reservoir refilled per SWI-207",["YES","NO","N/A"]), { condition:() => responses.c6_coolant_level_ok === "NO" }),
+        choiceField("c6_pump_audible","11) Glycol pump running by touch/audible indication",["YES","NO"]),
+        numberField("c6_pump_v","11b) Voltage: glycol pump connector pin 1 to frame ground (VDC)"),
+        numberField("c6_gcm15_r","11b.ii) Resistance: pump connector pin 2 to GCM pin 15 (Ω, spec ≤0.3Ω)"),
+        numberField("c6_relay30_r","11b.ii) Resistance: pump connector pin 1 to power relay pin 30 / DC input pin 1 (Seakeeper 1) (Ω, spec ≤0.3Ω)"),
+        notesField("c6_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Glycol Pump Bench Test & Blockage Check",
+      instruction:"IF the voltage and resistance checks above are satisfactory AND no Code 8 is present: PERFORM a bench test of the glycol pump using an independent power source matching the Seakeeper's DC voltage. IF the pump fails to operate, REPLACE the glycol pump. IF it operates on the bench but NOT in the Seakeeper, REPLACE BOTH the GCM and the glycol pump. RECONNECT all harness connections. IF glycol flow is still NOT re-established, CHECK for blockage in the coolant paths: remove the coolant hose at each component in the loop one at a time (directing into a container), activate glycol override, and check flow at each — maintain reservoir level throughout. IF blockage is suspected in the enclosure water jackets, CONTACT Seakeeper Product Support for guidance opening/cleaning them. PERFORM SWI-207 Glycol Service to restore glycol, then perform a sea trial to confirm the alarm has cleared.",
+      fields:[
+        choiceField("c6_bench_test","Bench test result",["PUMP FAILED - REPLACED","WORKS ON BENCH, NOT IN UNIT - GCM+PUMP REPLACED","N/A - VOLTAGE/RESISTANCE CHECKS FAILED"]),
+        choiceField("c6_blockage_found","Blockage found in coolant paths",["YES","NO","N/A"]),
+        choiceField("c6_glycol_restored","Glycol restored per SWI-207 / flow re-established",["YES","NO"]),
+        choiceField("c6_seatrial","Sea trial performed to confirm alarm cleared",["YES","NO"]),
+        notesField("c6_s7_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 6/10/104/155/157 – Completion",
+      pdfPage:49,
+      instruction:"12. SPOOL the Seakeeper. 13. IF the alarm persists: OBTAIN the last alarm data log(s) from ConnectBox per SWI-137, DOCUMENT a summary of all steps taken and data collected, and SUBMIT everything to Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com) for review.",
+      fields:[
+        choiceField("c6_spooled","12) Seakeeper spooled",["YES","NO"]),
+        choiceField("c6_final_clear","Final) Alarm clear",["YES","NO"]),
+        choiceField("c6_data_log","13a) ConnectBox data log obtained (if alarm persists)",["YES","NO","N/A"]),
+        textField("c6_parts","Final) Parts replaced"),
+        textField("c6_repairs","Final) Repairs performed"),
+        textField("c6_case","Final) Support case number / instructions"),
+        notesField("c6_final","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
+function workflow_6_104_155_157(triggerCode){
+  if(usesSwi206()) return workflow_6_104_155_157_206(triggerCode);
   return [
     {
       title:"SWI-106 SECTION 1: AC-POWERED MODELS • Steps 1-2-3",
@@ -6621,10 +6776,11 @@ function buildStepsRaw(code){
   if(code === "31" || code === "37" || code === "38" || code === "39") return workflow_travel_motion();
   if(code === "115") return workflow_115();
   if(code === "BRAKE_OVERRIDE") return workflow_brake_override();
-  if(code === "6") return workflow_6_104_155_157();
-  if(code === "104") return workflow_6_104_155_157();
-  if(code === "155") return workflow_6_104_155_157();
-  if(code === "157") return workflow_6_104_155_157();
+  if(code === "6") return workflow_6_104_155_157(code);
+  if(code === "10") return workflow_6_104_155_157(code);
+  if(code === "104") return workflow_6_104_155_157(code);
+  if(code === "155") return workflow_6_104_155_157(code);
+  if(code === "157") return workflow_6_104_155_157(code);
   if(code === "8" || code === "58") return workflow_8_9();
   if(code === "9") return workflow_8_9();
   if(code === "15") return workflow_15();
