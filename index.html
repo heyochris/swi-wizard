@@ -559,7 +559,7 @@
     background:#5c636a;
     position:relative;
   }
-  .swi-frame-wrap iframe{
+  .swi-frame-wrap embed{
     display:none;
     position:absolute;
     inset:0;
@@ -592,7 +592,7 @@
   .swi-frame-wrap.desktop-embed{
     justify-content:stretch;
   }
-  .swi-frame-wrap.desktop-embed iframe{
+  .swi-frame-wrap.desktop-embed embed{
     display:block;
     flex:1 1 auto;
     position:relative;
@@ -672,6 +672,23 @@
     animation:swiSpin .8s linear infinite;
   }
   @keyframes swiSpin{ to{ transform:rotate(360deg); } }
+  .swi-open-native-btn{
+    display:none;
+    position:absolute;
+    top:10px;
+    right:10px;
+    z-index:6;
+    padding:6px 12px;
+    border-radius:6px;
+    border:1px solid rgba(255,255,255,.4);
+    background:rgba(20,24,28,.75);
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .swi-open-native-btn:hover{ background:rgba(20,24,28,.92); }
+  .swi-frame-wrap.desktop-embed .swi-open-native-btn{ display:inline-flex; }
   .swi-open-card{
     text-align:center;
     padding:28px 16px;
@@ -1163,7 +1180,8 @@ try{ document.getElementById("jsOffBanner").style.display = "none"; }catch(e){}
           </div>
         </div>
         <div id="swiLoading" class="swi-loading hidden">Loading PDF…</div>
-        <iframe id="swiPdfFrame" title="unused" class="hidden"></iframe>
+        <button type="button" id="swiOpenNativeBtn" class="swi-open-native-btn" onclick="openCurrentPdfInNewTab()">Open PDF in new tab ⧉</button>
+        <embed id="swiPdfFrame" type="application/pdf" title="unused" class="hidden" />
       </div>
     </div>
   </aside>
@@ -1767,10 +1785,27 @@ function renderMobileDocLinks(){
 }
 window.renderMobileDocLinks = renderMobileDocLinks;
 
+function recreateSwiFrame(){
+  // Chrome's built-in PDF plugin only reliably paints an <embed> on its very
+  // first src assignment — changing .src again on the SAME element (even via
+  // an about:blank reset) silently renders blank on the 2nd+ navigation.
+  // Swapping in a brand-new <embed> node for every page change sidesteps that
+  // entirely and is what makes repeated Jump/Next/Prev clicks work every time.
+  const old = el("swiPdfFrame");
+  if(!old) return null;
+  const fresh = document.createElement("embed");
+  fresh.id = "swiPdfFrame";
+  fresh.type = "application/pdf";
+  fresh.title = "unused";
+  fresh.className = old.className;
+  old.parentNode.replaceChild(fresh, old);
+  return fresh;
+}
+
 function showNativePdf(pageNumber){
   const canvas = el("swiCanvas");
   const fallback = el("swiFallback");
-  const frame = el("swiPdfFrame");
+  let frame = el("swiPdfFrame");
   const wrap = document.querySelector(".swi-frame-wrap");
   const page = Math.max(1, Number(pageNumber) || 1);
   const fileName = swiPdfUrl || BUNDLED_SWI_PDF || "";
@@ -1788,24 +1823,19 @@ function showNativePdf(pageNumber){
     ? ("pages " + entry.start + "\u2013" + entry.end)
     : ("page " + page);
 
-  // Laptop/desktop with a mouse: a real <iframe> renders the PDF right inside the
+  // Laptop/desktop with a mouse: a real <embed> renders the PDF right inside the
   // Docs pane, and desktop browsers zoom/scroll/click it natively — no downside there.
   // Touch devices (phone/tablet): iOS/Android strip click + pinch-zoom inside iframes,
   // so hand the PDF to the OS's own full-screen viewer via a normal link instead.
   if(!isTouchUi() && frame && src){
     if(wrap) wrap.classList.add("desktop-embed");
-    frame.classList.remove("hidden");
-    try{
-      if(frame.getAttribute("data-src") !== src){
-        frame.setAttribute("data-src", src);
-        // A src change that differs only by #fragment is often treated as an
-        // in-page hash navigation, so the PDF plugin never re-jumps pages.
-        // Force a hard reload (blank first) so every page change is a real navigation.
-        frame.src = "about:blank";
-        setTimeout(function(){ frame.src = src; }, 0);
-      }
-    }catch(e){
-      try{ frame.src = src; }catch(e2){}
+    if(frame.getAttribute("data-src") !== src){
+      frame = recreateSwiFrame() || frame;
+      frame.setAttribute("data-src", src);
+      frame.classList.remove("hidden");
+      frame.src = src;
+    }else{
+      frame.classList.remove("hidden");
     }
     if(fallback) fallback.classList.add("hidden");
   }else{
@@ -1974,6 +2004,17 @@ function wireSwiPinchZoom(){
   }
 }
 window.wireSwiPinchZoom = wireSwiPinchZoom;
+
+function openCurrentPdfInNewTab(){
+  // Chrome refuses to render its PDF viewer inside an iframe when the parent
+  // page itself is file:// — but a direct top-level tab navigation works fine.
+  try{
+    const url = resolvePdfUrl();
+    const base = String(url).split("#")[0];
+    const src = base + "#page=" + swiCurrentPage;
+    window.open(src, "_blank");
+  }catch(e){}
+}
 
 function hideNativePdf(){
   const wrap = document.querySelector(".swi-frame-wrap");
