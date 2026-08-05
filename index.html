@@ -2540,6 +2540,8 @@ function modelSupportsRestrictedCode(code, model){
   if(code === "121" || code === "122") return usesSwi206(model);
   // Code 10 — SWI-206 only, and only Seakeeper 4.5 and 10 (protective bearing feature)
   if(code === "10") return usesSwi206(model) && (n === 10 || /Seakeeper\s*4\.5\b/i.test(String(model || "")));
+  // Code 57 — SWI-206 only enables this on Seakeeper 10 and 14
+  if(code === "57") return !usesSwi206(model) || n === 10 || n === 14;
   return true;
 }
 
@@ -2567,6 +2569,9 @@ function restrictedCodeMessage(code){
   }
   if(code === "10"){
     return "Code 10 (Cooling System Alert) only exists on Seakeeper 4.5 and 10.";
+  }
+  if(code === "57"){
+    return "Code 57 (Seawater Pump Malfunction) is only enabled on Seakeeper 10 and 14 (SWI-206).";
   }
   return "Code " + code + " may not apply to the selected model. Confirm model applicability in the reference guide before continuing.";
 }
@@ -4875,7 +4880,89 @@ function workflow_15(){
   ];
 }
 
-function workflow_16(){
+/** SWI-206 Codes 16/57 (pages 58-70) — Discrete Seawater Pump / Seawater Pump
+ *  Malfunction. Rewritten from real SWI-206 text. Code 57 is ONLY enabled on
+ *  Seakeeper 10 and 14. Seakeeper 1 has NO diode module and its seawater pump
+ *  relay pin numbers are swapped relative to Seakeeper 4+ (30↔87, 85↔86). */
+function workflow_16_57_206(triggerCode){
+  const n = modelNumber(selectedModel());
+  const is1 = n === 1;
+  const is57 = triggerCode === "57";
+  return [
+    {
+      title:"SWI-206 Code 16/57 – Background & Seawater Pump Power Check",
+      pdfPage:58,
+      instruction:"BACKGROUND: The seawater pump is powered on/off through the seawater pump power relay based on MDB temperature (see Code 6 background for model set points). Code 57 (Seawater Pump Malfunction) indicates insufficient seawater flow — it triggers when the glycol temperature differential across the heat exchanger rises 7°C within a 10-minute window while the pump is enabled with no other significant changes (a failed-closed electric ball valve is another possible cause). CODE 57 IS ONLY ENABLED ON SEAKEEPER 10 AND 14. Troubleshooting concentrates on the relay/coil circuitry and (on Seakeeper 4+) a diode module. IF other cooling alarms are active (e.g. Code 6), address Code 16/57 FIRST — it may clear the Code 6 fault too. PROCEDURE: 1) TURN OFF the AC or high-current DC breaker; ENSURE flywheel at zero RPM. 2) CHECK all electrical connections secure on the seawater pump power relay. 3) CHECK the diode module is securely attached to the wire harness (N/A on Seakeeper 1, which has no diode module). 4) VERIFY seawater pump power: a) DC breaker for the pump ON, b) ACTIVATE seawater pump override, c) TEST for 12/24 VDC at the SW pump power input connector (pins 1–2), d) TEST for 12/24 VDC at the SW pump output connector at the pump (pins 1–2). e) IF voltage reads 10VDC or less (12V systems) or 18VDC or less (24V systems), troubleshoot the vessel's electrical system (or verify the alternate voltage source if the pump is aligned differently). f) DEACTIVATE seawater pump override.",
+      fields:[
+        choiceField("c16_connections_secure","2) Seawater pump power relay connections secure",["YES","NO"]),
+        Object.assign(choiceField("c16_diode_attached","3) Diode module securely attached to harness",["YES","NO","N/A"]), { condition:() => !is1 }),
+        numberField("c16_v_input","4c) Voltage at SW pump power input connector, pins 1–2 (VDC)"),
+        numberField("c16_v_output","4d) Voltage at SW pump output connector at pump, pins 1–2 (VDC)"),
+        choiceField("c16_v_satisfactory","4e) Voltage satisfactory (above 10VDC@12V or 18VDC@24V)",["YES","NO"]),
+        notesField("c16_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 16/57 – Seawater Pump Power Relay Test",
+      pdfPage:60,
+      instruction:"5) TURN OFF the DC control power supply breaker AND the DC seawater pump supply breaker. a) VERIFY the relay's nameplate voltage rating is proper for the pump installed — REPLACE the relay if the marking is wrong. b) DISCONNECT the wire harness from the relay and REMOVE it from the GCM mount screw. c) With a multimeter, VERIFY 0.3Ω or less between pin 30 and pin 87A. d) CHECK coil resistance between pin 85 and pin 86 (acceptable range: 81–99Ω for 12V systems, 324–396Ω for 24V systems). e) IF either resistance check is unsatisfactory, REPLACE the seawater relay. f) IF the relay was replaced, RECONNECT all connectors, RESTORE power, and CHECK that Code 16 clears.",
+      fields:[
+        choiceField("c16_relay_voltage_match","5a) Relay nameplate voltage rating matches pump",["YES","NO"]),
+        Object.assign(choiceField("c16_relay_replaced_v","5a) Relay replaced (voltage mismatch)",["YES","NO","N/A"]), { condition:() => responses.c16_relay_voltage_match === "NO" }),
+        numberField("c16_r_3087a","5c) Resistance pin 30–87A (Ω, spec ≤0.3Ω)"),
+        numberField("c16_coil_r","5d) Coil resistance pin 85–86 (Ω, spec 81–99Ω@12V / 324–396Ω@24V)"),
+        choiceField("c16_relay_replaced","5e) Relay replaced (resistance checks unsatisfactory)",["YES","NO","N/A"]),
+        Object.assign(choiceField("c16_code16_clear_after_relay","5f) Code 16 clear after relay replacement",["YES","NO","N/A"]), { condition:() => responses.c16_relay_replaced === "YES" || responses.c16_relay_replaced_v === "YES" }),
+        notesField("c16_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 16/57 – Diode Module Test (Seakeeper 4 and Above Only)",
+      pdfPage:62,
+      condition:() => !is1,
+      instruction:"6) UNPLUG the diode module from the wire harness. With a multimeter in Resistance mode, TEST the two pins in both directions: expect HIGH/OPEN LOOP resistance in one direction AND 0.5–0.8Ω in the other direction. IF both directions read high/OL, REPLACE the diode module. IF both directions read relatively low (continuity both ways), REPLACE the diode module. (Seakeeper 1 has no diode module — this step does not apply.)",
+      fields:[
+        choiceField("c16_diode_result","6) Diode test result",["NORMAL (ONE OL, ONE 0.5-0.8Ω)","BOTH HIGH/OL - REPLACED","BOTH LOW/CONTINUITY - REPLACED"]),
+        notesField("c16_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 16/57 – Wire Harness Continuity Tests",
+      pdfPage:63,
+      instruction:"7) ENSURE DC control power and seawater pump supply breakers are OFF, then DISCONNECT the 70-pin GCM connector. With a multimeter, TEST for 0.3Ω or less at each of the following: i. Pin 2 of DC SW Pump In connector to Pin 2 of DC SW Pump Out connector. ii. Pin 1 of DC SW Pump In connector to Pin 30 of the seawater pump relay connector (Pin 87 on Seakeeper 1 — pins are swapped on that model). iii. Pin 87 of the relay connector (Pin 30 on Seakeeper 1) to Pin 1 of DC SW Pump Out connector. iv. Pin 86 of the relay connector (Pin 85 on Seakeeper 1) to Pin 3 of the 70-pin GCM connector. v/vi. On Seakeeper 4 and above only: Pin 86 of the relay to Pin 2 of the diode module connector, AND Pin 85 of the relay to Pin 1 of the diode module. 8) IF ANY test above is unsatisfactory, REPLACE the wire harness — IF Seakeeper 1, CONTACT Seakeeper Product Support BEFORE replacing the harness.",
+      fields:[
+        numberField("c16_r_pin2","i) Resistance: SW Pump In pin 2 to SW Pump Out pin 2 (Ω, spec ≤0.3Ω)"),
+        numberField("c16_r_pin1_30","ii) Resistance: SW Pump In pin 1 to relay pin 30/87 (Ω, spec ≤0.3Ω)"),
+        numberField("c16_r_87_1","iii) Resistance: relay pin 87/30 to SW Pump Out pin 1 (Ω, spec ≤0.3Ω)"),
+        numberField("c16_r_86_gcm3","iv) Resistance: relay pin 86/85 to GCM pin 3 (Ω, spec ≤0.3Ω)"),
+        Object.assign(numberField("c16_r_86_diode2","v) Resistance: relay pin 86 to diode module pin 2 (Ω, spec ≤0.3Ω, Seakeeper 4+ only)"), { condition:() => !is1 }),
+        Object.assign(numberField("c16_r_85_diode1","vi) Resistance: relay pin 85 to diode module pin 1 (Ω, spec ≤0.3Ω, Seakeeper 4+ only)"), { condition:() => !is1 }),
+        choiceField("c16_harness_unsatisfactory","8) Any test above unsatisfactory",["YES","NO"]),
+        Object.assign(choiceField("c16_support_contacted","8a) Seakeeper Product Support contacted BEFORE replacing harness (Seakeeper 1)",["YES","NO","N/A"]), { condition:() => is1 && responses.c16_harness_unsatisfactory === "YES" }),
+        choiceField("c16_harness_replaced","8) Wire harness replaced",["YES","NO","N/A"]),
+        notesField("c16_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 16/57 – Completion",
+      pdfPage:69,
+      instruction:"9) IF Code 16 and previous steps showed no faults, REPLACE the GCM and VERIFY Code 16 clears. 10) IF Code 57 and the glycol pump is running, ENSURE flow through the glycol loop: deactivate override, disconnect the coolant hose at the heat exchanger inlet barb, direct into a bucket/bag, momentarily activate the glycol pump to confirm flow, troubleshoot for an obstruction if none is observed, then reattach the hose and refill the reservoir. 11) IF Code 57 still active, ACTIVATE seawater override. 12) ENSURE the seawater pump is running and the electric valve (if equipped) is open. 13) IF there is an issue with the pump or valve, TROUBLESHOOT per Code 6 starting at Step 3g. 14) IF the alarm persists with no other cooling alarms active, CONTACT Seakeeper Product Support with all data collected and a summary of steps taken.",
+      fields:[
+        Object.assign(choiceField("c16_gcm_replaced","9) GCM replaced (Code 16, no faults found)",["YES","NO","N/A"]), { condition:() => !is57 }),
+        Object.assign(choiceField("c16_glycol_flow_verified","10) Glycol loop flow verified (Code 57, pump running)",["YES","NO","N/A"]), { condition:() => is57 }),
+        Object.assign(choiceField("c16_seawater_override_pump_valve","11/12) Seawater override activated; pump running and valve open confirmed",["YES","NO","N/A"]), { condition:() => is57 }),
+        choiceField("c16_final_clear","Final) Alarm clear",["YES","NO"]),
+        textField("c16_parts","Final) Parts replaced"),
+        textField("c16_repairs","Final) Repairs performed"),
+        textField("c16_case","Final) Support case number / instructions"),
+        notesField("c16_final","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
+function workflow_16(triggerCode){
+  if(usesSwi206()) return workflow_16_57_206(triggerCode);
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
@@ -6842,7 +6929,7 @@ function buildStepsRaw(code){
   if(code === "8" || code === "58") return workflow_8_9(code);
   if(code === "9") return workflow_8_9(code);
   if(code === "15") return workflow_15();
-  if(code === "16" || code === "57") return workflow_16();
+  if(code === "16" || code === "57") return workflow_16(code);
   if(code === "73") return workflow_73_74();
   if(code === "74") return workflow_73_74();
   if(code === "105") return workflow_105_161_162();
