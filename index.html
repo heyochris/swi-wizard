@@ -2554,6 +2554,8 @@ function modelSupportsRestrictedCode(code, model){
   if(code === "148" || code === "149") return usesSwi206(model) && (n === 10 || n === 14);
   // Code 120 — GCM to Drive Comm Lost (Curtis drive), SWI-206 only, Seakeeper 1 only
   if(code === "120") return usesSwi206(model) && n === 1;
+  // Code 98 — AC Mains Low, AC-powered models only (Seakeeper 4.5/10/14 on SWI-206)
+  if(code === "98" && usesSwi206(model)) return n === 10 || n === 14 || /Seakeeper\s*4\.5\b/i.test(String(model || ""));
   return true;
 }
 
@@ -2590,6 +2592,9 @@ function restrictedCodeMessage(code){
   }
   if(code === "120"){
     return "Code 120 (GCM to Drive Comm Lost) only exists on Seakeeper 1 (Curtis drive), SWI-206.";
+  }
+  if(code === "98"){
+    return "Code 98 (AC Mains Low) only applies to AC-powered Seakeeper models (4.5/10/14 on SWI-206).";
   }
   return "Code " + code + " may not apply to the selected model. Confirm model applicability in the reference guide before continuing.";
 }
@@ -7099,7 +7104,29 @@ function workflow_85_86_87_88_89_90_91_92_93(){
   ];
 }
 
+/** SWI-206 Code 94 — Drive Preoperational (SWI-206 page 181) */
+function workflow_94_206(){
+  return [
+    {
+      title:"SWI-206 Code 94 – Background & Procedure",
+      pdfPage:181,
+      instruction:"BACKGROUND: \"Preoperational\" mode is a state in which programming of the MDB is allowed; the MDB will not communicate with the Seakeeper in this state. It is unexpected for a Seakeeper to display this alarm. PROCEDURE: 1) CYCLE low current DC power to Seakeeper (open then close breaker). 2) ALLOW up to 15 minutes for Seakeeper to reset. 3) ATTEMPT TO RESET alarm at MFD app/display. 4) IF alarm fails to reset, REPLACE MDB (Curtis drive box if Seakeeper 1). 5) RETURN MDB to Seakeeper by contacting Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("c94_power_cycled","1) Low current DC power cycled",["YES","NO"]),
+        choiceField("c94_reset_attempted","3) Alarm reset attempted",["YES","NO"]),
+        choiceField("c94_alarm_cleared","3) Alarm cleared",["YES","NO"]),
+        Object.assign(choiceField("c94_mdb_replaced","4) MDB / Curtis drive box replaced",["YES","NO","N/A"]), { condition:() => responses.c94_alarm_cleared === "NO" }),
+        choiceField("c94_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        textField("c94_case","Final) Support case number / instructions"),
+        textField("c94_parts","Final) Parts replaced"),
+        notesField("c94_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_94(){
+  if(usesSwi206()) return workflow_94_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2",
@@ -7119,7 +7146,90 @@ function workflow_94(){
   ];
 }
 
+/** SWI-206 Code 95/96 — Drive Hardware Fault / Drive Fault (SWI-206 pages 182-189) */
+function workflow_95_96_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const is1 = n === 1;
+  return [
+    {
+      title:"SWI-206 Code 95/96 – Background",
+      pdfPage:182,
+      instruction:"BACKGROUND: Codes originate in the MDB and are reported to the GCM via CAN when the MDB experiences an internal fault or a general fault. Code 95 is for all hardware faults meaning internal MDB communication has been lost — the microcontroller can no longer control the system. Code 96 is a power frame ID fault where the microcontroller does not recognize internal hardware configuration; it occurs sporadically, often from water intrusion into the MDB PCB, or briefly during MDB programming. On Seakeeper 1, Code 96 commonly occurs from issues with the Halls cable signal wires to the encoder — focus troubleshooting on this circuit and connectors. Issues may require MDB replacement; eliminate any material fault first.",
+      fields:[choiceField("c95_96_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c95_96_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 95/96 – Initial Checks & Connector Inspection",
+      pdfPage:183,
+      instruction:"1) IF other codes active, TROUBLESHOOT other active codes first. WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 2) PLACE Seakeeper in safe condition: a) ENSURE flywheel at zero RPM at MFD app/display. b) TURN OFF all breakers to Seakeeper. 3) ENSURE MDB/Curtis drive connector is securely fastened. 4) For Seakeeper 1, PERFORM Attachment 1 to access Curtis drive connector. 5) ENSURE no visible damage to wire harness near MDB/Curtis drive. 6) INSPECT drive connector for loose wires, crimps, damage, or corrosion: a) TUG on wires from back of connector. b) REMOVE connector face cover. c) CONFIRM sockets and crimps are secure. 7) IF loose wires/crimps found, REPAIR connector (CONTACT Seakeeper Product Support for assistance). 8) VERIFY no damage to MDB/Curtis drive case. 9) IF casing damage found, REPLACE MDB/Curtis drive.",
+      fields:[
+        choiceField("c95_96_other_codes","1) Other active codes present",["YES","NO"]),
+        choiceField("c95_96_mdb_connector_secure","3) MDB/Curtis drive connector securely fastened",["YES","NO"]),
+        choiceField("c95_96_harness_damage","5) Visible damage to wire harness near MDB/Curtis drive",["YES","NO"]),
+        choiceField("c95_96_connector_ok","6) Drive connector sockets/crimps secure, no damage/corrosion",["YES","NO"]),
+        Object.assign(choiceField("c95_96_connector_repaired","7) Connector repaired",["YES","NO","N/A"]), { condition:() => responses.c95_96_connector_ok === "NO" }),
+        choiceField("c95_96_case_ok","8) MDB/Curtis drive case undamaged",["YES","NO"]),
+        Object.assign(choiceField("c95_96_mdb_replaced_casing","9) MDB/Curtis drive replaced (casing damage)",["YES","NO","N/A"]), { condition:() => responses.c95_96_case_ok === "NO" }),
+        notesField("c95_96_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 95/96 – Seakeeper 1: Encoder & Curtis Drive Harness",
+      pdfPage:185,
+      condition:() => is1,
+      instruction:"10) For Seakeeper 1: a) ENSURE all electrical connections secure at encoder wire harness connection. b) IF no connection issue, TURN OFF Seakeeper breaker or isolator switch. c) CONFIRM wires/crimps of Encoder lead and wire harness connectors are secure. i) IF issues found with Encoder branch harness connector, CORRECT harness connector. d) DISCONNECT Curtis Drive harness connector (Attachment 1 for access). e) INSPECT Curtis Drive pins and connector pins for damage, loose wires, or crimps. i) IF issues in Curtis Drive harness connector, CORRECT issue(s). ii) IF issues found with Curtis Drive pins, CORRECT OR REPLACE Curtis drive.",
+      fields:[
+        choiceField("c95_96_sk1_encoder_connections","10a) Encoder wire harness connections secure",["YES","NO"]),
+        choiceField("c95_96_sk1_encoder_crimps","10c) Encoder lead / harness connector wires/crimps secure",["YES","NO"]),
+        Object.assign(choiceField("c95_96_sk1_encoder_corrected","10c.i) Encoder branch harness connector corrected",["YES","NO","N/A"]), { condition:() => responses.c95_96_sk1_encoder_crimps === "NO" }),
+        choiceField("c95_96_sk1_curtis_pins_ok","10e) Curtis Drive pins / connector pins undamaged, secure",["YES","NO"]),
+        Object.assign(choiceField("c95_96_sk1_curtis_corrected","10e.i) Curtis Drive harness connector issue corrected",["YES","NO","N/A"]), { condition:() => responses.c95_96_sk1_curtis_pins_ok === "NO" }),
+        Object.assign(choiceField("c95_96_sk1_curtis_replaced","10e.ii) Curtis drive corrected/replaced (pin damage)",["YES","NO","N/A"]), { condition:() => responses.c95_96_sk1_curtis_pins_ok === "NO" }),
+        notesField("c95_96_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 95/96 – Seakeeper 1: Encoder Continuity & Brake Override",
+      pdfPage:186,
+      condition:() => is1 && responses.c95_96_sk1_encoder_crimps !== "NO" && responses.c95_96_sk1_curtis_pins_ok !== "NO",
+      instruction:"f) IF NO issues in harness/lead connectors of Encoder: i) With multimeter in Resistance mode, CONFIRM continuity between harness Encoder branch connector pin 2 and Curtis drive connector pin 17. ii) CONFIRM continuity between harness Encoder branch connector pin 3 and Curtis drive connector pin 18. g) IF Step f.i or f.ii show OPEN LOOP, CONTACT Seakeeper Product Support for wire harness replacement. h) TURN ON Seakeeper breaker or isolator switch. i) ACTIVATE brake override. j) MANUALLY PRECESS enclosure fully toward rear latch.",
+      fields:[
+        choiceField("c95_96_sk1_continuity_2_17","f.i) Continuity confirmed Encoder branch pin 2 to Curtis pin 17",["YES","NO"]),
+        choiceField("c95_96_sk1_continuity_3_18","f.ii) Continuity confirmed Encoder branch pin 3 to Curtis pin 18",["YES","NO"]),
+        Object.assign(choiceField("c95_96_sk1_support_openloop","g) Product Support contacted (open loop found)",["YES","NO","N/A"]), { condition:() => responses.c95_96_sk1_continuity_2_17 === "NO" || responses.c95_96_sk1_continuity_3_18 === "NO" }),
+        choiceField("c95_96_sk1_precessed","j) Enclosure manually precessed fully toward rear latch",["YES","NO"]),
+        notesField("c95_96_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 95/96 – Seakeeper 1: Encoder Removal & Testing",
+      pdfPage:187,
+      condition:() => is1 && responses.c95_96_sk1_continuity_2_17 !== "NO" && responses.c95_96_sk1_continuity_3_18 !== "NO",
+      instruction:"k) REMOVE light gray Encoder cable from chain around gimbal. l) REMOVE Encoder wiring shroud from enclosure (two M2.5 Phillips pan head screws). m) REMOVE Encoder housing snap lid. n) REMOVE Encoder housing and lead from enclosure (four Phillips flat head screws). o) CONFIRM continuity in Encoder lead from Encoder pin 2 to lead connector pin 2. p) CONFIRM less than 0.3Ω in Encoder lead from Encoder pin 3 to lead connector pin 3. q) IF Step o or p show OPEN LOOP, REPLACE encoder: i) INSTALL Encoder and ROUTE light gray cable through chain. ii) CYCLE low current DC power to Seakeeper. iii) WAIT up to 15 minutes for Seakeeper to reset. 11) IF alarm persists, SUBMIT results from all checks to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) for review.",
+      fields:[
+        choiceField("c95_96_sk1_encoder_continuity_2","o) Continuity confirmed Encoder pin 2 to lead connector pin 2",["YES","NO"]),
+        numberField("c95_96_sk1_encoder_r_3","p) Resistance Encoder pin 3 to lead connector pin 3 (Ω, spec <0.3Ω)"),
+        Object.assign(choiceField("c95_96_sk1_encoder_replaced","q) Encoder replaced (open loop found)",["YES","NO","N/A"]), { condition:() => responses.c95_96_sk1_encoder_continuity_2 === "NO" }),
+        notesField("c95_96_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 95/96 – Completion",
+      pdfPage:189,
+      instruction:"Record final status, parts, repairs, and support case if the alarm persists.",
+      fields:[
+        choiceField("c95_96_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        textField("c95_96_case","Final) Support case number / instructions"),
+        textField("c95_96_parts","Final) Parts replaced"),
+        textField("c95_96_repairs","Final) Repairs performed"),
+        notesField("c95_96_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_95_96(){
+  if(usesSwi206()) return workflow_95_96_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
@@ -7149,7 +7259,69 @@ function workflow_95_96(){
   ];
 }
 
+/** SWI-206 Code 98 — AC Mains Low (AC-powered models only) (SWI-206 pages 191-195) */
+function workflow_98_206(){
+  return [
+    {
+      title:"SWI-206 Code 98 – Background",
+      pdfPage:191,
+      instruction:"BACKGROUND: Occurs only on AC-powered Seakeeper models when voltage senses below 80 VAC for longer than two consecutive minutes. A \"Notice 97 – AC Power Low\" precedes this alarm once voltage first drops below 80 VAC; it remains 2 minutes before being replaced by \"Alarm 98 – AC Mains Low\". The delay allows time to switch shore power/generator. If voltage is restored to normal range (80-300 VAC) during the notice period, the notice disappears with no alarm history entry. Most service calls for this alarm result from vessel electrical issues; rarely an MDB failure. Troubleshoot vessel electrical issues first, then address MDB fault.",
+      fields:[choiceField("c98_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c98_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 98 – AC Panel & Voltage Checks",
+      pdfPage:192,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) TURN ON Seakeeper AC breaker. 2) PERFORM inspections: a) INSPECT AC panel breaker terminals for loose or corroded connections. b) IF a relay is in supply power, VERIFY relay is wired correctly. 3) ENSURE flywheel at zero RPM at MFD app/display. 4) IF display indicates \"1234 RPM\": a) CHECK voltage at output of breaker (80-300 VAC). b) CHECK voltage within any junction box in AC power cable run. c) CONTINUE troubleshooting.",
+      fields:[
+        choiceField("c98_panel_terminals_ok","2a) AC panel breaker terminals free of loose/corroded connections",["YES","NO"]),
+        choiceField("c98_relay_wired_correctly","2b) Relay (if present) wired correctly",["YES","NO","N/A"]),
+        choiceField("c98_1234rpm","4) Display indicating 1234 RPM",["YES","NO"]),
+        numberField("c98_v_breaker_output","4a) Voltage at breaker output (VAC, spec 80–300)"),
+        notesField("c98_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 98 – AC Input Voltage & MDB Inspection",
+      pdfPage:193,
+      instruction:"b) MEASURE voltage at \"AC INPUT\" terminal. c) IF voltage not between 80-300 VAC, TROUBLESHOOT AC power cable to Seakeeper. d) DOCUMENT voltage and source (e.g., \"221.3 VAC on Shore Power\") for later comparison. WARNING: Shock hazard exists when flywheel rotating or power aligned to Seakeeper. 5) PERFORM checks inside MDB: a) VERIFY all cable leads in proper location, crimps satisfactory, leads securely fastened at terminals.",
+      fields:[
+        numberField("c98_v_ac_input","b) AC INPUT terminal voltage (VAC, spec 80–300)"),
+        textField("c98_voltage_source","d) Documented voltage and source"),
+        choiceField("c98_mdb_leads_ok","5a) MDB cable leads/crimps satisfactory and secure",["YES","NO"]),
+        notesField("c98_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 98 – Alternate Source Test & 400V DC Check",
+      pdfPage:194,
+      instruction:"e) CHANGE to an alternate source customarily used for powering Seakeeper (e.g., shift from shore power to generator). f) DOCUMENT voltage and source. g) START Seakeeper to spool flywheel. h) MEASURE voltage at \"400V DC\" terminal. i) MONITOR AC voltages and current (display) as flywheel spools (or Performance Information tab on Service Tool app if connected). j) During spool up, START large loads that could lower vessel voltage (engines, AC windlass, air conditioning) and MONITOR effects. k) IF a load creates alarm, DETERMINE cause for voltage drop from that load. l) IF Step h NOT between 390-400 VDC, REPLACE motor drive.",
+      fields:[
+        textField("c98_alt_source","e/f) Alternate source used and documented"),
+        numberField("c98_v_400dc","h) 400V DC terminal voltage (VDC, spec 390–400)"),
+        choiceField("c98_load_test_alarm","k) Large-load test triggered alarm",["YES","NO"]),
+        textField("c98_load_cause","k) Cause of voltage drop from load (if applicable)"),
+        Object.assign(choiceField("c98_motor_drive_replaced","l) Motor drive replaced",["YES","NO","N/A"]), { condition:() => responses.c98_v_400dc !== "" }),
+        notesField("c98_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 98 – Completion",
+      pdfPage:195,
+      instruction:"6) IF alarm persists: a) COMPILE all data from troubleshooting. b) NOTE source of AC power when alarm triggered. c) PHOTOGRAPH display Information screen. d) SUBMIT test results data, notes, and photos to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) for review.",
+      fields:[
+        choiceField("c98_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c98_data_submitted","6d) Data/photos submitted to Product Support",["YES","NO","N/A"]), { condition:() => responses.c98_final_alarm_clear === "NO" }),
+        textField("c98_case","Final) Support case number / instructions"),
+        textField("c98_parts","Final) Parts replaced"),
+        textField("c98_repairs","Final) Repairs performed"),
+        notesField("c98_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_98(){
+  if(usesSwi206()) return workflow_98_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
