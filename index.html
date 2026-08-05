@@ -2740,6 +2740,11 @@ async function checkPackageHealth(){ return; }
 function getSensorPin3GcmPin(model){
   model = model || selectedModel();
   const n = modelNumber(model);
+  if(usesSwi206(model)){
+    // SWI-206: Pin 3 goes to GCM Pin 2 on Seakeeper 4/4.5/10/14; on Seakeeper 1 (Curtis drive) it lands on the DC Input Negative terminal instead of a GCM pin.
+    if(n === 1) return "DC Input Negative terminal (Seakeeper 1 has no GCM pin here)";
+    return "Pin 2";
+  }
   if(n === 3 || n === 5 || n === 6) return "Pin 2";
   if(n === 2 || (n !== null && n >= 9)) return "Pin 32";
   return "";
@@ -2976,12 +2981,12 @@ function updateCodeInfo(){
 
 function step22Tests(){
   const pin3Target = getSensorPin3GcmPin();
+  const pin3Label = pin3Target && /DC Input Negative/i.test(pin3Target)
+    ? "22C) Sensor Pin 3 to DC Input Negative terminal resistance (Ω) — Seakeeper 1 (no GCM pin here)"
+    : `22C) Sensor Pin 3 to GCM ${pin3Target} resistance (Ω)`;
   const pin3Fields = pin3Target
     ? [
-        numberField(
-          "s22_pin3",
-          `22C) Sensor Pin 3 to GCM ${pin3Target} resistance (Ω)`
-        )
+        numberField("s22_pin3", pin3Label)
       ]
     : [
         choiceField(
@@ -2998,7 +3003,8 @@ function step22Tests(){
       instruction:"With the multimeter in resistance mode, measure resistance from the angle-sensor harness connector to the GCM 70-pin connector. Each continuity reading must be below 0.3 Ω. If any reading is higher than 0.3 Ω, verify wires/crimps are secure and repair loose crimps; if wiring is satisfactory, replace the wire harness.",
       spec:() => {
         const pin = getSensorPin3GcmPin() || (responses.s22_pin3target || "Pin 2 or Pin 32");
-        return `Angle Sensor GCM pinout (SWI-106): Pin 1 → GCM Pin 48 (+5 VDC); Pin 2 → GCM Pin 28 (signal); Pin 3 → GCM ${pin}.`;
+        const pinLabel = /DC Input Negative/i.test(pin) ? pin : ("GCM " + pin);
+        return `Angle Sensor GCM pinout (${activeGuideTag()}): Pin 1 → GCM Pin 48 (+5 VDC); Pin 2 → GCM Pin 28 (signal); Pin 3 → ${pinLabel}.`;
       },
       fields:[
         numberField("s22_pin1","22A) Sensor Pin 1 to GCM Pin 48 resistance (Ω)"),
