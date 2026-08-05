@@ -2391,6 +2391,8 @@ const ALARMS = {
   "105":{title:"HEATER DELAYS DRIVER",applies:"See model applicability",summary:"These warnings are o nly enabled on the Seakeeper 26 and 35 models. The warnings alert the operator of an adverse condition with the optional heater accessory (P/N 20238) available to these models. Code 161 is activated after a timer, based on initial temperature, runs out. The G"},
   "161":{title:"HEATER INEFFECTIVE WARNING",applies:"See model applicability",summary:"These warnings are o nly enabled on the Seakeeper 26 and 35 models. The warnings alert the operator of an adverse condition with the optional heater accessory (P/N 20238) available to these models. Code 161 is activated after a timer, based on initial temperature, runs out. The G"},
   "162":{title:"HEATER NOT PRESENT",applies:"See model applicability",summary:"These warnings are o nly enabled on the Seakeeper 26 and 35 models. The warnings alert the operator of an adverse condition with the optional heater accessory (P/N 20238) available to these models. Code 161 is activated after a timer, based on initial temperature, runs out. The G"},
+  "148":{title:"COOLANT TEMPERATURE SENSOR FAULT - RANGE HIGH",applies:"Seakeeper 10 and 14 only (SWI-206)",summary:"Occurs when the GCM detects an analog output signal from the flow-through glycol temperature sensor that is higher than expected. Indicates a sensor failure or wire harness issue and will stop the flywheel motor. Troubleshooting tests the thermistor wiring/connections to isolate the failed element."},
+  "149":{title:"COOLANT TEMPERATURE SENSOR FAULT - RANGE LOW",applies:"Seakeeper 10 and 14 only (SWI-206)",summary:"Occurs when the GCM detects an analog output signal from the flow-through glycol temperature sensor that is lower than expected. Indicates a sensor failure or wire harness issue and will stop the flywheel motor. Troubleshooting tests the thermistor wiring/connections to isolate the failed element."},
   "35":{title:"DISPLAY FAULT",applies:"See model applicability",summary:"The “Display Fault” alarm (Code 35) may appear on the display whenever the GCM has lost communication with the display(s). The reset condition is for communications to be returned to the display for one minute. When the alarm is activated by the GCM (seen by the display or not), "},
   "251":{title:"NO CONNECTION TO GYRO",applies:"See model applicability",summary:"The “Display Fault” alarm (Code 35) may appear on the display whenever the GCM has lost communication with the display(s). The reset condition is for communications to be returned to the display for one minute. When the alarm is activated by the GCM (seen by the display or not), "},
   "36":{title:"MOTOR FAULT",applies:"See model applicability",summary:"Code 36 is triggered when the flywheel motor spins faster than a programmed limit in the Seakeeper drive software. The Code 36 alarm will clear once the flywheel motor is powered and running at a a speed less than the programmed limit in drive software. Basic troubleshooting can "},
@@ -2546,6 +2548,8 @@ function modelSupportsRestrictedCode(code, model){
   if(code === "10") return usesSwi206(model) && (n === 10 || /Seakeeper\s*4\.5\b/i.test(String(model || "")));
   // Code 57 — SWI-206 only enables this on Seakeeper 10 and 14
   if(code === "57") return !usesSwi206(model) || n === 10 || n === 14;
+  // Codes 148/149 — Coolant Temperature Sensor Fault, SWI-206 only, Seakeeper 10/14 only
+  if(code === "148" || code === "149") return usesSwi206(model) && (n === 10 || n === 14);
   return true;
 }
 
@@ -2576,6 +2580,9 @@ function restrictedCodeMessage(code){
   }
   if(code === "57"){
     return "Code 57 (Seawater Pump Malfunction) is only enabled on Seakeeper 10 and 14 (SWI-206).";
+  }
+  if(code === "148" || code === "149"){
+    return "Code " + code + " (Coolant Temperature Sensor Fault) only exists on Seakeeper 10 and 14 (SWI-206).";
   }
   return "Code " + code + " may not apply to the selected model. Confirm model applicability in the reference guide before continuing.";
 }
@@ -5001,6 +5008,80 @@ function workflow_16(triggerCode){
   ];
 }
 
+/** SWI-206 Codes 148/149 (pages 247-250) — Coolant Temperature Sensor Fault
+ *  Range High/Low. NEW codes with no SWI-106 equivalent and no prior workflow
+ *  in the app at all (selecting them previously hit the "no workflow
+ *  registered" fallback alert). Only enabled on Seakeeper 10 and above per
+ *  the SWI-206 background text. */
+function workflow_148_149_206(){
+  return [
+    {
+      title:"SWI-206 Code 148/149 – Background & Harness Connection Check",
+      pdfPage:247,
+      instruction:"BACKGROUND: These alarms occur on models Seakeeper 10 and above when the GCM detects an analog output signal from the flow-through glycol temperature sensor that is higher (Code 148) or lower (Code 149) than expected. Either alarm indicates a sensor failure or an issue in the wire harness conductors, and will stop the Seakeeper flywheel motor. The temperature sensor is located behind the coolant reservoir bracket, or between the bracket and heat exchanger. 1) At the temperature sensor, VERIFY the harness connection is secure. IF the connection is loose: RECONNECT the connector to the temperature sensor, CYCLE DC control power to the Seakeeper for 5 seconds or longer, and CHECK that all display codes clear.",
+      fields:[
+        choiceField("c148_conn_secure","1) Harness connection at temperature sensor secure",["YES","NO"]),
+        Object.assign(choiceField("c148_reconnected","1a) Connector reconnected",["YES","NO","N/A"]), { condition:() => responses.c148_conn_secure === "NO" }),
+        Object.assign(choiceField("c148_cycled_1","1a.ii) DC control power cycled 5+ seconds",["YES","NO","N/A"]), { condition:() => responses.c148_conn_secure === "NO" }),
+        Object.assign(choiceField("c148_clear_1","1a.iii) All display codes clear",["YES","NO","N/A"]), { condition:() => responses.c148_conn_secure === "NO" }),
+        notesField("c148_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 148/149 – Sensor Resistance Test",
+      pdfPage:248,
+      condition:() => responses.c148_clear_1 !== "YES",
+      instruction:"2) UNPLUG the sensor from the wire harness. 3) INSPECT for loose wire connections within the sensor connector. 4) With a multimeter in Resistance mode, VERIFY the resistance between the two pins of the sensor is between 4,000Ω and 12,000Ω when near ambient conditions (reference: 10,000Ω at 25°C/77°F, 1,450Ω at 85°C/185°F). IF resistance is outside of range: REPLACE the temperature sensor, RESTORE coolant per SWI-207 (Seakeeper Glycol Service), CYCLE DC control power, and CHECK that all display codes clear.",
+      fields:[
+        choiceField("c148_unplugged","2) Sensor unplugged from wire harness",["YES","NO"]),
+        choiceField("c148_wire_insp","3) Loose wire connections found in sensor connector",["YES","NO"]),
+        numberField("c148_resistance","4) Resistance across sensor pins (Ω)"),
+        choiceField("c148_resistance_ok","4) Within spec (4,000-12,000Ω)",["YES","NO"]),
+        Object.assign(choiceField("c148_sensor_replaced","4a) Temperature sensor replaced",["YES","NO","N/A"]), { condition:() => responses.c148_resistance_ok === "NO" }),
+        Object.assign(choiceField("c148_coolant_restored","4a.ii) Coolant restored per SWI-207",["YES","NO","N/A"]), { condition:() => responses.c148_resistance_ok === "NO" }),
+        Object.assign(choiceField("c148_cycled_2","4b) DC control power cycled",["YES","NO","N/A"]), { condition:() => responses.c148_resistance_ok === "NO" }),
+        Object.assign(choiceField("c148_clear_2","4c) All display codes clear",["YES","NO","N/A"]), { condition:() => responses.c148_resistance_ok === "NO" }),
+        notesField("c148_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 148/149 – GCM Voltage & Harness Continuity Test",
+      pdfPage:249,
+      condition:() => responses.c148_clear_2 !== "YES",
+      instruction:"5) With a multimeter in DC Volts mode and DC control power applied, CONFIRM 5VDC across pins 1 and 2 of the wire harness sensor connector. IF no voltage across pins: DISCONNECT the 70-pin GCM connector, TURN OFF the DC control power breaker, INSPECT the 70-pin GCM connector for loose wire/pin connections, and with multimeter in Resistance mode, MEASURE for less than 0.3Ω between: sensor pin 1 and GCM pin 39, AND sensor pin 2 and GCM pin 2. Also ENSURE an open loop (no short) between pins 1 and 2 of the sensor connector. IF high resistance, a short, or loose connector pins were found: REPLACE/REPAIR the wire harness, CYCLE DC control power, and VERIFY all display codes clear.",
+      fields:[
+        numberField("c148_v_pins12","5) Voltage across pins 1-2 of sensor connector (VDC, spec ~5VDC)"),
+        choiceField("c148_v_ok","5) Voltage present as expected",["YES","NO"]),
+        Object.assign(choiceField("c148_gcm_insp","5a.iii) 70-pin GCM connector inspected for loose wire/pin connections",["YES","NO","N/A"]), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(numberField("c148_r_pin1_39","5a.v.1) Resistance: sensor pin 1 to GCM pin 39 (Ω, spec <0.3Ω)"), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(numberField("c148_r_pin2_2","5a.v.2) Resistance: sensor pin 2 to GCM pin 2 (Ω, spec <0.3Ω)"), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(choiceField("c148_open_loop","5a.vi) Open loop confirmed (no short) between sensor pins 1-2",["YES","NO","N/A"]), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(choiceField("c148_harness_replaced","5a.vii) Wire harness replaced/repaired (high resistance/short/loose pins found)",["YES","NO","N/A"]), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(choiceField("c148_cycled_3","5a.vii.2) DC control power cycled",["YES","NO","N/A"]), { condition:() => responses.c148_v_ok === "NO" }),
+        Object.assign(choiceField("c148_clear_3","5a.vii.3) All display codes clear",["YES","NO","N/A"]), { condition:() => responses.c148_v_ok === "NO" }),
+        notesField("c148_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 148/149 – GCM Replacement & Completion",
+      pdfPage:250,
+      condition:() => responses.c148_clear_3 !== "YES",
+      instruction:"6) ENSURE all power removed from Seakeeper. 7) REPLACE the GCM. 8) TURN ON all power to Seakeeper. 9) VERIFY all display codes clear. 10) IF the alarm persists, THEN CONTACT Seakeeper Product Support Team at support@seakeeper.com or emeasupport@seakeeper.com with all measurements recorded and steps taken.",
+      fields:[
+        choiceField("c148_power_removed","6) All power removed from Seakeeper",["YES","NO"]),
+        choiceField("c148_gcm_replaced","7) GCM replaced",["YES","NO","N/A"]),
+        choiceField("c148_power_on","8) All power turned on",["YES","NO"]),
+        choiceField("c148_final_clear","9) All display codes clear",["YES","NO"]),
+        choiceField("c148_support_contacted","10) Seakeeper Product Support contacted (alarm persists)",["YES","NO","N/A"]),
+        textField("c148_case","10) Support case number / instructions"),
+        textField("c148_parts","Final) Parts replaced"),
+        textField("c148_repairs","Final) Repairs performed"),
+        notesField("c148_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_73_74(){
   return [
     {
@@ -7111,6 +7192,7 @@ function buildStepsRaw(code){
   if(code === "NOISE") return workflow_noise();
   if(code === "CORR") return workflow_corr();
   if(code === "PERF") return workflow_perf();
+  if(code === "148" || code === "149") return workflow_148_149_206();
   alert("No workflow is registered for code " + code + ".");
   return [];
 }
