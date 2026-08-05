@@ -8258,7 +8258,118 @@ function workflow_150_151_152_153_165(){
   ];
 }
 
+/** SWI-206 Code 163 — Slow Spool Up (SWI-206 pages 251-258) */
+function workflow_163_206(){
+  const n = modelNumber(selectedModel());
+  const isAC = n === 10 || n === 14 || /Seakeeper\s*4\.5\b/i.test(String(selectedModel() || ""));
+  const isSk1 = n === 1;
+  return [
+    {
+      title:"SWI-206 Code 163 – Background",
+      pdfPage:251,
+      instruction:"BACKGROUND: \"Slow Spool Up\" is reported by the GCM when it senses a speed rise of less than 10 RPM in 1 minute for two consecutive minutes during spool up after the operator presses start. Code 72 (Motor Underspeed) is similar but triggered when in SEA Mode. If accompanied by Code 98 (AC Mains Low, AC-powered models) or Code 166 (DC Mains Low, DC-powered models), the input power supply to the MDB is likely the cause and should be pursued first. If accompanied by Code 128 (Vacuum Leak warning), air resistance from a vacuum leak may overcome the motor's ability to reach operational speed. Motor lead testing (SWI-124) determines the condition of the insulation/potting of the motor drive cable and flywheel motor. REFERENCES: SWI-116 – Vacuum Service, SWI-124 – Motor Lead Testing, SWI-129 – Vacuum Gauge Operation, SF-90683 – Pre-FRB Swap Checklist.",
+      fields:[choiceField("c163_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c163_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 163 – Initial Findings",
+      pdfPage:252,
+      instruction:"1) IF recent drive-related alarm(s) present in alarm history, ADDRESS those first (identified by 'DRIVE' in description). 2) Due to potential for sphere replacement, RECORD all interview answers and testing results. 3) INTERVIEW owner/operator: a) When did issue first appear? b) Has Seakeeper achieved full speed since? c) If no, what was max speed noted (RPM)? d) Did alarm occur at dock or underway? i) If at dock and DC-powered, was battery charged overnight? ii) If DC-powered, battery voltage at time of alarm? iii) If underway, how long after leaving dock did alarm occur? 4) VISUALLY INSPECT motor power cable from MDB to feed-through in enclosure (cracked/damaged insulation, kinked cable) — document with photo(s). 5) IF speed 200+ RPM in Step 3c, PROCEED to SWI-129 (Vacuum Gauge Operation) to determine enclosure pressure: a) IF satisfactory (<85 Torr), PROCEED to Section 2 (AC) or Section 3 (DC) below. b) IF unsatisfactory (>85 Torr), PERFORM vacuum service per SWI-116.",
+      fields:[
+        choiceField("c163_drive_alarms_addressed","1) Drive-related alarms addressed first",["YES","NO","N/A"]),
+        choiceField("c163_full_speed_since","3b) Achieved full speed since issue appeared",["YES","NO"]),
+        Object.assign(numberField("c163_max_speed_rpm","3c) Maximum speed noted (RPM)"), { condition:() => responses.c163_full_speed_since === "NO" }),
+        choiceField("c163_dock_or_underway","3d) Alarm occurred at dock or underway",["DOCK","UNDERWAY"]),
+        numberField("c163_battery_v_at_alarm","3d.ii) Battery voltage at time of alarm (VDC, DC models)"),
+        choiceField("c163_motor_cable_inspected","4) Motor power cable inspected (no cracks/kinks)",["YES","NO"]),
+        numberField("c163_vacuum_torr","5) Enclosure vacuum reading (Torr, spec <85)"),
+        Object.assign(choiceField("c163_vacuum_service_done","5b) Vacuum service performed per SWI-116",["YES","NO","N/A"]), { condition:() => responses.c163_vacuum_torr !== "" })
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Spool-Up Verification",
+      pdfPage:253,
+      instruction:"6) IF speed less than 200 RPM or unknown in Step 3c, START Seakeeper spooling to at least 200 RPM: a) IF speed does not achieve 200 RPM: i) RECORD 30-second video of MFD app/display service screen. ii) NOTE maximum RPM obtained. iii) NOTE time to reach maximum RPM. iv) NOTE current at maximum RPM. v) PROCEED to Section 2 (AC) or Section 3 (DC) below. b) IF speed exceeds 200 RPM, RETURN to Step 5 of Initial Findings.",
+      fields:[
+        numberField("c163_max_rpm_achieved","ii) Maximum RPM obtained during spool-up attempt"),
+        textField("c163_time_to_max_rpm","iii) Time to reach maximum RPM (min:sec)"),
+        numberField("c163_current_at_max_rpm","iv) Current at maximum RPM (Amps)"),
+        notesField("c163_s3_notes","Notes")
+      ]
+    },
+    {
+      title: isAC ? "SWI-206 Code 163 – Section 2: AC-Powered Models (MDB Motor Leads)" : "SWI-206 Code 163 – Section 2/3: Power Circuit Checks",
+      pdfPage:254,
+      condition:() => isAC,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) ENSURE flywheel at zero RPM. 2) TURN OFF all power to Seakeeper. 3) REMOVE MDB cover. 4) ENSURE interior of MDB free of moisture. 5) VERIFY leads at 'MOTOR' terminal in proper position by color, ground cable attached — CORRECT any issues. 6) VERIFY leads crimped properly, fully inserted, and locked firmly; if terminal block orange tab will not lock, ROTATE and RELOCK crimp. 7) CORRECT any remaining lead issues. 8) LOOSEN MDB feed-through grommet and EXAMINE motor drive cable insulation at grommet — IF damage found, CONTACT Seakeeper Product Support for guidance on cable/sphere replacement.",
+      fields:[
+        choiceField("c163_ac_moisture_free","4) MDB interior free of moisture",["YES","NO"]),
+        choiceField("c163_ac_motor_leads_ok","5) Motor terminal leads correct position/ground attached",["YES","NO"]),
+        choiceField("c163_ac_crimps_locked","6) Motor leads crimped and locked firmly",["YES","NO"]),
+        choiceField("c163_ac_grommet_insulation_ok","8) Motor drive cable insulation at grommet undamaged",["YES","NO"]),
+        Object.assign(choiceField("c163_ac_support_contacted_grommet","8b) Product Support contacted re: cable/sphere",["YES","NO","N/A"]), { condition:() => responses.c163_ac_grommet_insulation_ok === "NO" }),
+        notesField("c163_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Section 2: AC Voltage Checks",
+      pdfPage:255,
+      condition:() => isAC,
+      instruction:"9) TURN ON AC power supply breaker to Seakeeper. 10) With multimeter in AC Volts mode, MEASURE voltage at 'AC INPUT' terminal between black and white terminals. 11) IF voltage below 188 VAC (230V service) / 97 VAC (110V service), or above 264 VAC (230V) / 132 VAC (110V), THEN TROUBLESHOOT vessel electrical supply. 12) READ and RECORD voltage at '400V DC' terminal. 13) TURN OFF AC power breaker to Seakeeper.",
+      fields:[
+        numberField("c163_v_ac_input","10) AC INPUT terminal voltage (VAC)"),
+        Object.assign(choiceField("c163_ac_supply_troubleshot","11) Vessel electrical supply troubleshot (out-of-range voltage)",["YES","NO","N/A"]), { condition:() => responses.c163_v_ac_input !== "" }),
+        numberField("c163_v_400dc","12) 400V DC terminal voltage (VDC, spec 390-400)"),
+        notesField("c163_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Section 2: Motor Lead Test & Completion",
+      pdfPage:256,
+      condition:() => isAC,
+      instruction:"14) IF checks above satisfactory, PERFORM motor lead testing per SWI-124. 15) IF any megohm test result is 100 MΩ or less, CONSIDER UNSATISFACTORY and CONTINUE. 16) IF Step 12 voltage NOT between 390-400 VDC, REPLACE MDB. 17) TORQUE MDB cover M4 screws to 19 in-lbs (2.2 Nm). 18) PERFORM final documentation: a) RECORD 30-second video within 1 yard of Seakeeper at spool-up (minimal background noise). b) After reaching highest achievable RPM, RECORD spool-down video showing RPM drop over 70 RPM. c) COMPLETE SF-90683 Pre-FRB Swap Checklist. d) TAKE photo of information screen and alarm history. e) SUBMIT to Seakeeper Product Support: interview summary, test values/data logs, images/video (Dropbox for oversized files; do not compress video).",
+      fields:[
+        choiceField("c163_motor_lead_test_result","14) Motor lead test result (SWI-124)",["SATISFACTORY","UNSATISFACTORY"]),
+        Object.assign(choiceField("c163_mdb_replaced","16) MDB replaced (400V DC out of spec)",["YES","NO","N/A"]), { condition:() => responses.c163_v_400dc !== "" }),
+        choiceField("c163_video_spoolup","18a) Spool-up video recorded",["YES","NO"]),
+        choiceField("c163_video_spooldown","18b) Spool-down video recorded (70 RPM drop)",["YES","NO"]),
+        notesField("c163_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Section 3: DC-Powered Models (High-Current Terminals)",
+      pdfPage:257,
+      condition:() => !isAC,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) TURN OFF all power to Seakeeper. 2) REMOVE cover at motor drive contact posts and High DC input terminals (N/A for Seakeeper 1). 3) INSPECT for severe corrosion at contacts or cable damage. 4) VERIFY terminal leads torqued per Torque Specifications AND motor cable leads in correct color" + (isSk1 ? " (or 'U'/'V'/'W' labeling on the Curtis drive for Seakeeper 1)" : "") + " location. 5) TURN ON high-current DC power breaker to Seakeeper. 6) MEASURE high DC voltage at INPUT terminals (spec 11.2-15.0 VDC).",
+      fields:[
+        choiceField("c163_dc_corrosion_ok","3) No severe corrosion / cable damage at contacts",["YES","NO"]),
+        choiceField("c163_dc_leads_torqued","4) Motor cable leads torqued and correct color/label position",["YES","NO"]),
+        numberField("c163_v_dc_input","6) High DC voltage at INPUT terminals (VDC, spec 11.2-15.0)"),
+        notesField("c163_s7_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Section 3: Motor Lead Test & Completion",
+      pdfPage:258,
+      condition:() => !isAC,
+      instruction:"7) IF not at proper voltage (11.2-15.0V), TROUBLESHOOT vessel's electrical system. 8) TURN OFF high current DC power to Seakeeper. NOTE: Intermittent opens in a wire may not be seen without manipulating the harness to duplicate movement of precession. 9) PERFORM motor lead testing per SWI-124. 10) IF any temperature-corrected resistance is less than 100 MΩ, CONSIDER UNSATISFACTORY. 11) DOCUMENT results of all measurements and photograph any physical damage. 12) PERFORM final documentation: a) RECORD 30-second spool-up video (minimal background noise). b) RECORD spool-down video showing RPM drop over 70 RPM. c) TAKE photo of information screen and alarm history. d) SUBMIT to Seakeeper Product Support: interview summary, test values/data logs, images/video.",
+      fields:[
+        Object.assign(choiceField("c163_dc_supply_troubleshot","7) Vessel electrical system troubleshot (voltage out of spec)",["YES","NO","N/A"]), { condition:() => responses.c163_v_dc_input !== "" }),
+        choiceField("c163_dc_motor_lead_test_result","9) Motor lead test result (SWI-124)",["SATISFACTORY","UNSATISFACTORY"]),
+        choiceField("c163_dc_video_spoolup","12a) Spool-up video recorded",["YES","NO"]),
+        choiceField("c163_dc_video_spooldown","12b) Spool-down video recorded (70 RPM drop)",["YES","NO"]),
+        notesField("c163_s8_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 163 – Final Documentation",
+      instruction:"Record final status, parts, repairs, sea-trial result, and support case if the alarm persists.",
+      fields:[choiceField("c163_final_alarm_clear","Final) Alarm clear",["YES","NO"]),choiceField("c163_final_seatrial","Final) Sea trial performed",["YES","NO","N/A"]),choiceField("c163_final_photo","Final) Information-screen photo attached",["YES","NO"]),textField("c163_final_parts","Final) Parts replaced"),textField("c163_final_repairs","Final) Repairs performed"),textField("c163_final_case","Final) Support case number / instructions"),notesField("c163_final_notes","Final) Technician notes")]
+    }
+  ];
+}
+
 function workflow_163(){
+  if(usesSwi206()) return workflow_163_206();
   return [
     {
       title:"SWI-106 SECTION 1, INITIAL FINDINGS • Steps 1-2-3",
