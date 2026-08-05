@@ -1346,6 +1346,7 @@ const SECONDARY_SWI_MAPS = {
   "SWI-124":{"start":3,"end":16,"steps":{"1":3,"AC1":3,"DC1":10}}
 };
 let activeSwiDocId = "SWI-106";
+let swiLastSyncedCode = "";
 let swiDocManualLock = "";
 const SWI_PDF_DB = "seakeeper_swi106_pdf_v37";
 const SWI_PDF_STORE = "pdf";
@@ -1660,28 +1661,23 @@ function parseDocStepNumber(docId, text){
 }
 
 function estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount){
-  const step = currentWizardStep();
-  const hay = String(stepTitle || "") + "\n" + stepTextHaystack(step);
-
-  if(docId === "SWI-206"){
+  // Auto-jump only ever lands on the START of the right section/document —
+  // it does NOT try to guess which exact page a given step/field is on.
+  // That per-step guessing was the source of "wrong step" jumps, especially
+  // when a step hands off to a secondary SWI (211, 109, 118, etc.) and the
+  // wizard had to regex-parse a step number out of free text. Techs use the
+  // PDF's own scrollbar/thumbnails/blue links from here to reach the exact spot.
+  const base = baseGuideDocId();
+  if(docId === base){
     if(entry){
-      // Wizard step maps are SWI-106-oriented; jump to the SWI-206 code section.
-      return Math.max(1, Number(entry.start) || 1);
+      const code = activeSwiCode();
+      const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
+      return (rich && rich.start) ? rich.start : (Number(entry.start) || 1);
     }
     return 1;
   }
-  if(docId !== "SWI-106"){
-    const rich = SECONDARY_SWI_MAPS[docId];
-    if(!rich) return 1;
-    const num = parseDocStepNumber(docId, hay);
-    if(num && rich.steps){
-      if(rich.steps[num]) return rich.steps[num];
-      const base = String(num).replace(/[A-Z]/g, "");
-      if(rich.steps[base]) return rich.steps[base];
-    }
-    return rich.start || 1;
-  }
-  return estimatePageForStep(entry, stepTitle, stepIndex, stepCount);
+  const rich = SECONDARY_SWI_MAPS[docId];
+  return (rich && rich.start) ? rich.start : 1;
 }
 
 function updateSwiDocChips(docId){
@@ -2240,7 +2236,10 @@ function syncSwiPanel(){
   }catch(e){ docId = baseGuideDocId(); }
   if(!SWI_DOC_FILES[docId]) docId = baseGuideDocId();
 
-  if(docId !== activeSwiDocId){
+  const docChanged = (docId !== activeSwiDocId);
+  const codeChanged = (code !== swiLastSyncedCode);
+
+  if(docChanged){
     activeSwiDocId = docId;
     swiPdfUrl = SWI_DOC_FILES[docId] || BUNDLED_SWI_PDF;
     swiPdfSource = "bundled";
@@ -2267,15 +2266,23 @@ function syncSwiPanel(){
     }
   }catch(e){}
 
-  let page = 1;
-  if(uiScreen === "setup"){
-    if(entry){
-      const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
-      page = (rich && rich.start) ? rich.start : entry.start;
-    }else page = 1;
-  }else{
-    page = estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount);
+  // Only auto-navigate when the active code or the active document actually
+  // changed. Otherwise leave the page exactly where the tech left it — don't
+  // fight manual Prev/Next/scroll just because a field got answered or a new
+  // wizard step rendered.
+  const shouldAutoJump = (uiScreen === "setup") || docChanged || codeChanged;
+  let page = swiCurrentPage || 1;
+  if(shouldAutoJump){
+    if(uiScreen === "setup"){
+      if(entry){
+        const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
+        page = (rich && rich.start) ? rich.start : entry.start;
+      }else page = 1;
+    }else{
+      page = estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount);
+    }
   }
+  swiLastSyncedCode = code;
 
   if(entry){
     swiMappedStart = entry.start;
@@ -2292,12 +2299,10 @@ function syncSwiPanel(){
       (uiScreen === "wizard" && stepTitle ? "<br>Step: " + escapeHtml(stepTitle) : "");
   }
   renderSwiFallback(entry, stepTitle);
-  const docChanged = docId !== (el("swiCanvas") && el("swiCanvas").dataset.loadedDoc);
-  if(swiManualNav && !docChanged){
-    // User paged/zoomed manually and the step/doc hasn't changed since — leave their spot alone.
-    return;
+  if(shouldAutoJump){
+    swiManualNav = false;
+    openSwiPdfPage(page, docChanged);
   }
-  openSwiPdfPage(page, docChanged);
 }
 
 
