@@ -6081,7 +6081,110 @@ function workflow_44_45(){
   ];
 }
 
+/** SWI-206 Code 72 (pages 129-136) — Motor Under Speed. Rewritten from real
+ *  SWI-206 text: model-specific AC (Seakeeper 4.5/10/14) vs DC (Seakeeper 1/4)
+ *  power branching in Sections 2/3. */
+function workflow_72_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const isAC = n === 10 || n === 14 || /4\.5/.test(String(model || ""));
+  return [
+    {
+      title:"SWI-206 Code 72 – Background & Vacuum Check",
+      pdfPage:129,
+      instruction:"BACKGROUND: Code 72 is displayed because the motor is slowing while unlocked in \"SEA MODE\" — the alarm triggers at 2/3 of target motor speed. Other codes may appear alongside Code 72; troubleshoot those first, then return here if Code 72 remains active. Possible causes: motor power cable damage from rubbing/contact, intermittent drive box power, rising sphere vacuum loss, increased flywheel bearing drag, faulty vessel electrical system, enclosure vacuum loss, motor winding fault, and MDB faults. 1) COMPLETE this procedure in its entirety — RECORD all test/inspection results for submittal if the cause is not found. 2) CHECK vacuum pressure with a digital vacuum gauge (P/N 40605) per SWI-129. RECORD enclosure pressure. IF pressure is greater than 85 Torr, CONTACT Seakeeper Product Support to determine actions to restore vacuum.",
+      fields:[
+        choiceField("c72_other_codes","Other codes present alongside Code 72",["YES","NO"]),
+        Object.assign(choiceField("c72_other_resolved","Other codes troubleshot first and resolved",["YES","NO","N/A"]), { condition:() => responses.c72_other_codes === "YES" }),
+        numberField("c72_vacuum_torr","2a) Enclosure pressure (Torr)"),
+        choiceField("c72_vacuum_high","2b) Pressure greater than 85 Torr",["YES","NO"]),
+        Object.assign(choiceField("c72_support_contacted_vac","2b) Seakeeper Product Support contacted (vacuum restore)",["YES","NO","N/A"]), { condition:() => responses.c72_vacuum_high === "YES" }),
+        notesField("c72_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 72 – Initial Checks & Cable Precession Inspection",
+      pdfPage:130,
+      instruction:"3) VERIFY flywheel at zero RPM. 4) TURN OFF the AC or high-current DC breaker [N/A for Seakeeper 1]. 5) IF an AC-powered Seakeeper display reads Motor Speed of \"1234 RPM\" with the flywheel at rest, REPLACE the motor drive (note: overrides would be locked out in this condition since the MDB fault shows RPM greater than 0). 6) ACTIVATE brake override. 7) MANUALLY PRECESS the enclosure to observe clearances of the motor power cable through the whole precession path. 8) INSPECT the motor power cable feed-through on the enclosure bottom. 9-10) IF the cable contacts any structure in travel, INSPECT the cable at that point and DOCUMENT any insulation damage with a photo for later submittal.",
+      fields:[
+        choiceField("c72_rpm_zero","3) Flywheel at zero RPM",["YES","NO"]),
+        Object.assign(choiceField("c72_breaker_off","4) AC/high-current DC breaker OFF",["YES","NO","N/A"]), { condition:() => n !== 1 }),
+        choiceField("c72_1234_rpm","5) Display reads \"1234 RPM\" with flywheel at rest",["YES","NO"]),
+        Object.assign(choiceField("c72_drive_replaced_1234","5) Motor drive replaced",["YES","NO","N/A"]), { condition:() => responses.c72_1234_rpm === "YES" }),
+        choiceField("c72_override_active","6) Brake override activated",["YES","NO"]),
+        choiceField("c72_cable_precessed","7) Cable clearance observed through full precession",["YES","NO"]),
+        choiceField("c72_cable_contact","9) Cable contacts any structure/component in travel",["YES","NO"]),
+        Object.assign(choiceField("c72_cable_damage","10) Cable insulation damage found and photographed",["YES","NO","N/A"]), { condition:() => responses.c72_cable_contact === "YES" }),
+        notesField("c72_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 72 – AC-Powered Model Test (Seakeeper 4.5/10/14)",
+      pdfPage:132,
+      condition:() => isAC,
+      instruction:"SECTION 2 (AC-powered models): 1) With the Seakeeper locked and at zero RPM, REMOVE the MDB cover. 2) ENSURE the MDB interior is free of moisture. 3) MEASURE AC voltage at the \"AC INPUT\" terminal. IF below 80VAC or above 300VAC, TROUBLESHOOT the vessel's electrical supply. 5-7) VERIFY leads at the \"MOTOR\" and \"AC INPUT\" terminals are in the correct position by color, crimped properly, fully inserted, and locked firmly — CORRECT any issues found. 8-9) LOOSEN the MDB feed-through grommet and EXAMINE the motor drive cable insulation at the grommet, documenting any damage. 11-12) TEST and RECORD voltage at the \"400V DC\" terminal. 13) MONITOR input AC voltage during operation (brief dropouts take several minutes to register as alarms, but repeated dropouts can cause speed loss). 14) IF the \"400V DC\" terminal voltage is NOT steady between 390-400VDC, REPLACE the MDB. 15-16) INSTALL the MDB cover and TORQUE the ten M4 cover screws to 19 in-lbs (2.2 Nm).",
+      fields:[
+        choiceField("c72_mdb_cover_removed","1) MDB cover removed (locked, zero RPM)",["YES","NO"]),
+        choiceField("c72_moisture_free","2) MDB interior free of moisture",["YES","NO"]),
+        numberField("c72_ac_input_v","3) AC voltage at \"AC INPUT\" terminal (VAC, spec 80-300VAC)"),
+        Object.assign(choiceField("c72_electrical_troubleshot","3) Vessel electrical supply troubleshot (voltage out of range)",["YES","NO","N/A"]), { condition:() => true }),
+        choiceField("c72_leads_correct","5-6) Motor/AC Input leads correct color, crimped, seated, locked",["YES","NO"]),
+        Object.assign(choiceField("c72_leads_corrected","7) Lead issues corrected",["YES","NO","N/A"]), { condition:() => responses.c72_leads_correct === "NO" }),
+        choiceField("c72_grommet_loosened_ac","8) MDB feed-through grommet loosened",["YES","NO"]),
+        choiceField("c72_cable_insulation_ac","9) Motor drive cable insulation examined at grommet",["YES","NO"]),
+        Object.assign(choiceField("c72_cable_damage_ac","10) Damage found and photographed",["YES","NO","N/A"]), { condition:() => true }),
+        numberField("c72_400vdc","12) Voltage at \"400V DC\" terminal (VDC, spec steady 390-400VDC)"),
+        choiceField("c72_400vdc_steady","14) 400V DC terminal steady between 390-400VDC",["YES","NO"]),
+        Object.assign(choiceField("c72_mdb_replaced_ac","14) MDB replaced (voltage not steady)",["YES","NO","N/A"]), { condition:() => responses.c72_400vdc_steady === "NO" }),
+        choiceField("c72_cover_installed_ac","15-16) MDB cover installed, screws torqued to 19 in-lbs",["YES","NO"]),
+        choiceField("c72_issue_persists_ac","17) Issue persists (continue to Section 4)",["YES","NO"]),
+        notesField("c72_s3ac_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 72 – DC-Powered Model Test (Seakeeper 1/4)",
+      pdfPage:134,
+      condition:() => !isAC,
+      instruction:"SECTION 3 (DC-powered models): 1) TURN OFF the high-current DC breaker. 2) For Seakeeper 4, REMOVE the cover at the motor terminal contacts and high-DC-current input terminals (T15 Torx). For Seakeeper 1, REMOVE the protective grease covering the Curtis Drive terminals (see Code 5, Attachment 2). 4) INSPECT for severe corrosion/heat damage at contacts or loose crimps. 5) VERIFY all terminals torqued per spec and motor cable leads in the proper color location. 6-7) TURN ON the high-current DC breaker and START the Seakeeper. 8-9) MEASURE high DC voltage at the \"DC INPUT\" terminals during precession (spec: 11.0-15.0VDC). IF not in range, TROUBLESHOOT the vessel's electrical system. 10) MEASURE DC voltage from one motor power phase to ground: Seakeeper 1 ≈12VDC, Seakeeper 4 ≈48VDC. IF unsatisfactory, REPLACE the MDB/Curtis Drive. 11) STOP the Seakeeper from spooling via the power button.",
+      fields:[
+        choiceField("c72_dc_breaker_off","1) High-current DC breaker OFF",["YES","NO"]),
+        choiceField("c72_covers_removed_dc","2/3) Terminal covers / Curtis Drive grease removed",["YES","NO"]),
+        choiceField("c72_corrosion_dc","4) Severe corrosion/heat damage or loose crimps found",["YES","NO"]),
+        choiceField("c72_terminals_torqued_dc","5) Terminals torqued per spec, leads correct color location",["YES","NO"]),
+        choiceField("c72_breaker_on_dc","6-7) DC breaker ON, Seakeeper started",["YES","NO"]),
+        numberField("c72_dc_input_v","8) DC voltage at \"DC INPUT\" terminals during precession (VDC, spec 11.0-15.0VDC)"),
+        choiceField("c72_dc_input_ok","9) DC INPUT voltage within spec",["YES","NO"]),
+        Object.assign(choiceField("c72_electrical_troubleshot_dc","9) Vessel electrical system troubleshot",["YES","NO","N/A"]), { condition:() => responses.c72_dc_input_ok === "NO" }),
+        numberField("c72_phase_ground_v","10) DC voltage phase to ground (VDC, spec ~12VDC Sk1 / ~48VDC Sk4)"),
+        choiceField("c72_phase_ok","10c) Phase-to-ground voltage satisfactory",["YES","NO"]),
+        Object.assign(choiceField("c72_mdb_replaced_dc","10c) MDB/Curtis Drive replaced",["YES","NO","N/A"]), { condition:() => responses.c72_phase_ok === "NO" }),
+        choiceField("c72_stopped","11) Seakeeper stopped from spooling via power button",["YES","NO"]),
+        choiceField("c72_issue_persists_dc","12) Alarm persists (continue to Section 4)",["YES","NO"]),
+        notesField("c72_s3dc_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 72 – Completion",
+      pdfPage:136,
+      condition:() => responses.c72_issue_persists_ac === "YES" || responses.c72_issue_persists_dc === "YES",
+      instruction:"SECTION 4: 1) IF electrical measurements were satisfactory and the alarm is still active, REPLACE the MDB/Curtis Drive and RETURN the faulty drive unit to Seakeeper. 2) ENSURE all Seakeeper power is restored. 3) IF the alarm persists: CAPTURE video of the display service screen during coast-down from maximum achieved speed with a visible timer, COMPILE all data/photos, and SUBMIT everything to Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("c72_mdb_replaced_final","1) MDB/Curtis Drive replaced",["YES","NO","N/A"]),
+        choiceField("c72_power_restored","2) All Seakeeper power restored",["YES","NO"]),
+        choiceField("c72_final_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c72_video_captured","3a) Coast-down video captured",["YES","NO","N/A"]), { condition:() => responses.c72_final_clear === "NO" }),
+        Object.assign(choiceField("c72_support_contacted_final","3c) Data/photos/video submitted to Seakeeper Product Support",["YES","NO","N/A"]), { condition:() => responses.c72_final_clear === "NO" }),
+        textField("c72_case","Support case number / instructions"),
+        textField("c72_parts","Final) Parts replaced"),
+        textField("c72_repairs","Final) Repairs performed"),
+        notesField("c72_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_72(){
+  if(usesSwi206()) return workflow_72_206();
   return [
     {
       title:"SWI-106 Procedure • Steps Notes",
@@ -6176,7 +6279,131 @@ function workflow_72(){
   ];
 }
 
+/** SWI-206 Code 75 (pages 137-146) — IMU Fault. Rewritten from real SWI-206
+ *  text: CANbus continuity/short testing at the IMU, GCM, and display cable,
+ *  with a Seakeeper-1-specific Product Support note for harness replacement. */
+function workflow_75_206(){
+  const is1 = modelNumber(selectedModel()) === 1;
+  return [
+    {
+      title:"SWI-206 Code 75 – Background & Safe Condition",
+      pdfPage:137,
+      instruction:"BACKGROUND: Code 75 alarms when the GCM detects a break in CAN communication (CAN bus high/low leads). Any component on the CAN bus could cause this, not just the IMU — the most likely cause is the IMU becoming unplugged. Factory tests show Code 75 can also appear from a short in the CAN bus high/low lead; other alarms (Code 82 Drive Age Count, Code 35 Display Fault, Code 251 No Connection to Gyro) would likely also be in alarm history if that's the cause. IMU failure itself is unlikely — only replace it after eliminating other causes. WARNING: shock hazard exists working on live circuitry; the Seakeeper may start remotely. 1) PLACE the Seakeeper in a safe condition: ENSURE zero RPM, TURN OFF all breakers (see Code 5, Attachment 2 for accessing the Seakeeper 1 IMU).",
+      fields:[
+        choiceField("c75_other_alarms","Other CAN-related alarms present in history (35/82/84/158/251)",["YES","NO"]),
+        choiceField("c75_rpm_zero","1a) Zero RPM confirmed",["YES","NO"]),
+        choiceField("c75_breakers_off","1b) All breakers OFF",["YES","NO"]),
+        notesField("c75_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – IMU Visual Inspection",
+      pdfPage:138,
+      instruction:"2) DISCONNECT the IMU harness connector. 3) VISUALLY INSPECT all wiring and pins of the IMU: cut cable ties securing the harness near the IMU as necessary, inspect wiring near the IMU for exposed/damaged leads, inspect the IMU connector for loose wires or crimps. IF loose wires/crimps are found, REPAIR the connector. IF the wire harness/wires are damaged, REPLACE the wire harness. REPLACE any cable ties that were cut for inspection.",
+      fields:[
+        choiceField("c75_imu_disconnected","2) IMU harness connector disconnected",["YES","NO"]),
+        choiceField("c75_leads_damaged","3b) Exposed/damaged leads found near IMU",["YES","NO"]),
+        choiceField("c75_loose_crimps","3c) Loose wires or crimps found in IMU connector",["YES","NO"]),
+        Object.assign(choiceField("c75_connector_repaired","3d) Connector repaired",["YES","NO","N/A"]), { condition:() => responses.c75_loose_crimps === "YES" }),
+        Object.assign(choiceField("c75_harness_replaced_visual","3e) Wire harness replaced (damage found)",["YES","NO","N/A"]), { condition:() => responses.c75_leads_damaged === "YES" }),
+        choiceField("c75_ties_replaced","3f) Cable ties replaced",["YES","NO","N/A"]),
+        notesField("c75_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – Reconnect & Recheck",
+      pdfPage:139,
+      instruction:"4) RECONNECT the IMU connector, ensuring it's fully seated (two wedge tabs engage the IMU on each side; three molded ribs prevent upside-down insertion). CYCLE DC control power. VERIFY the IMU is mounted in the correct orientation per the applicable Electrical/Upper Foundation drawing. CHECK if the alarm clears.",
+      fields:[
+        choiceField("c75_imu_reconnected","4) IMU connector reconnected, fully seated",["YES","NO"]),
+        choiceField("c75_power_cycled_1","4a) DC control power cycled",["YES","NO"]),
+        choiceField("c75_orientation_ok","4b) IMU orientation verified correct",["YES","NO"]),
+        choiceField("c75_clear_after_reconnect","4c) Alarm clear after reconnect",["YES","NO"]),
+        notesField("c75_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – CANbus Voltage & IMU Pin Resistance Test",
+      pdfPage:140,
+      condition:() => responses.c75_clear_after_reconnect !== "YES",
+      instruction:"5) PERFORM AND RECORD electrical checks of the CANbus (note: intermittent opens may not show without manipulating the harness to duplicate precession movement). WARNING: shock hazard exists working on live circuitry. a) With power applied, DISCONNECT the IMU. b) CONFIRM 12/24VDC at the IMU harness connector between pin 12 and pin 1. c) Remove DC control power (disconnect supply or turn off breaker). d) DISCONNECT the wire harness from the MDB. e) DISCONNECT the display connection (helm display cable or ConnectBox). f) DISCONNECT the wire harness from the GCM. g) With a multimeter in Resistance mode: i) CONFIRM resistance <0.3Ω between IMU pin 3 and GCM pin 53. ii) CONFIRM resistance <0.3Ω between IMU pin 10 and GCM pin 36. iii) CHECK for a short between IMU pin 3 and pin 10.",
+      fields:[
+        numberField("c75_v_12_1","b) Voltage IMU pin 12 to pin 1 (VDC, spec 12/24VDC)"),
+        choiceField("c75_dc_removed","c) DC control power removed",["YES","NO"]),
+        choiceField("c75_mdb_disconnected","d) Wire harness disconnected from MDB",["YES","NO"]),
+        choiceField("c75_display_disconnected","e) Display/ConnectBox connection disconnected",["YES","NO"]),
+        choiceField("c75_gcm_disconnected","f) Wire harness disconnected from GCM",["YES","NO"]),
+        numberField("c75_r_3_53","g.i) Resistance IMU pin 3 to GCM pin 53 (Ω, spec <0.3Ω)"),
+        numberField("c75_r_10_36","g.ii) Resistance IMU pin 10 to GCM pin 36 (Ω, spec <0.3Ω)"),
+        choiceField("c75_short_3_10","g.iii) Short found between IMU pin 3 and pin 10",["YES","NO"]),
+        notesField("c75_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – Open-Loop Verification",
+      pdfPage:142,
+      condition:() => responses.c75_clear_after_reconnect !== "YES",
+      instruction:"iv) VERIFY NO short (Open Loop) between IMU pin 3 and pin 1, and between IMU pin 3 and pin 12. v) CHECK for a short between IMU pin 10 and pin 1, and between IMU pin 10 and pin 12. vi) IF any Step 5.g check was UNSATISFACTORY, REPLACE the wire harness. IF Seakeeper 1, CONTACT Seakeeper Product Support for guidance before replacing the wire harness.",
+      fields:[
+        choiceField("c75_ol_3_1","iv) Open loop confirmed IMU pin 3 to pin 1 (no short)",["YES","NO"]),
+        choiceField("c75_ol_3_12","iv) Open loop confirmed IMU pin 3 to pin 12 (no short)",["YES","NO"]),
+        choiceField("c75_ol_10_1","v) Open loop confirmed IMU pin 10 to pin 1 (no short)",["YES","NO"]),
+        choiceField("c75_ol_10_12","v) Open loop confirmed IMU pin 10 to pin 12 (no short)",["YES","NO"]),
+        choiceField("c75_step5_satisfactory","vi) All Step 5.g checks satisfactory",["YES","NO"]),
+        Object.assign(choiceField("c75_harness_replaced_5","vi) Wire harness replaced",["YES","NO","N/A"]), { condition:() => responses.c75_step5_satisfactory === "NO" }),
+        Object.assign(choiceField("c75_support_contacted_sk1","vi.1) [Seakeeper 1] Product Support contacted before harness replacement",["YES","NO","N/A"]), { condition:() => is1 && responses.c75_step5_satisfactory === "NO" }),
+        notesField("c75_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – Display Cable Test (Other CAN Alarms Present)",
+      pdfPage:143,
+      condition:() => responses.c75_clear_after_reconnect !== "YES" && responses.c75_other_alarms === "YES",
+      instruction:"6) IF other CAN-related alarms are present (Code 35, 82, 84, 158, 251): a) RECONNECT wire harness connectors to MDB, GCM, and IMU. b) At the male display cable connection of the harness: VERIFY resistance >1000Ω between pin 5/pin 2, pin 5/pin 3, pin 4/pin 2, and pin 4/pin 3. VERIFY resistance of 120Ω between pin 4 and pin 5 (about 59-60Ω if a terminating resistor is attached). CONFIRM Open Loop (OL) between pin 4/pin 1 and pin 5/pin 1. KEEP the display cable to helm/ConnectBox disconnected.",
+      fields:[
+        choiceField("c75_connectors_reconnected","6a) Wire harness connectors reconnected to MDB/GCM/IMU",["YES","NO"]),
+        numberField("c75_r_5_2","6b.i) Resistance pin 5 to pin 2 (Ω, spec >1000Ω)"),
+        numberField("c75_r_5_3","6b.ii) Resistance pin 5 to pin 3 (Ω, spec >1000Ω)"),
+        numberField("c75_r_4_2","6b.iii) Resistance pin 4 to pin 2 (Ω, spec >1000Ω)"),
+        numberField("c75_r_4_3","6b.iv) Resistance pin 4 to pin 3 (Ω, spec >1000Ω)"),
+        numberField("c75_r_4_5","6b.v) Resistance pin 4 to pin 5 (Ω, spec 120Ω / ~60Ω with terminator)"),
+        choiceField("c75_ol_4_1","6b.vi) Open loop confirmed pin 4 to pin 1",["YES","NO"]),
+        choiceField("c75_ol_5_1","6b.vi) Open loop confirmed pin 5 to pin 1",["YES","NO"]),
+        choiceField("c75_step6b_satisfactory","6c) Step 6.b checks satisfactory",["YES","NO"]),
+        notesField("c75_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – Helm Station Display Cable Test",
+      pdfPage:145,
+      condition:() => responses.c75_clear_after_reconnect !== "YES" && responses.c75_other_alarms === "YES" && responses.c75_step6b_satisfactory === "YES",
+      instruction:"c) At the helm station: i) DISCONNECT the display/ConnectBox cable from the Seakeeper. ii) CONFIRM Open Loop (OL) between any two pins with no terminating resistor attached. d) IF a short is found in Step 6.c.ii, REPLACE the display cable from Seakeeper to helm/ConnectBox.",
+      fields:[
+        choiceField("c75_helm_cable_disconnected","c.i) Display/ConnectBox cable disconnected from Seakeeper",["YES","NO"]),
+        choiceField("c75_helm_open_loop","c.ii) Open loop confirmed (no short) between any two pins",["YES","NO"]),
+        Object.assign(choiceField("c75_display_cable_replaced","d) Display cable replaced (short found)",["YES","NO","N/A"]), { condition:() => responses.c75_helm_open_loop === "NO" }),
+        notesField("c75_s7_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 75 – Completion",
+      pdfPage:146,
+      instruction:"7) RESTORE all connections and Seakeeper power. 8) IF the alarm persists, CONTACT Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com) with all test results and photos of the Information screen, alarm history, and any damage.",
+      fields:[
+        choiceField("c75_connections_restored","7) All connections and power restored",["YES","NO"]),
+        choiceField("c75_final_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c75_support_contacted_final","8) Seakeeper Product Support contacted",["YES","NO","N/A"]), { condition:() => responses.c75_final_clear === "NO" }),
+        textField("c75_case","Support case number / instructions"),
+        textField("c75_parts","Final) Parts replaced"),
+        textField("c75_repairs","Final) Repairs performed"),
+        notesField("c75_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_75(){
+  if(usesSwi206()) return workflow_75_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
@@ -6206,7 +6433,64 @@ function workflow_75(){
   ];
 }
 
+/** SWI-206 Code 76/77 (pages 147-149) — Roll/Yaw Rate Fault. Rewritten from
+ *  real SWI-206 text: IMU mounting/orientation and harness inspection. */
+function workflow_76_77_206(){
+  return [
+    {
+      title:"SWI-206 Code 76/77 – Background & IMU Mounting Check",
+      pdfPage:147,
+      instruction:"BACKGROUND: Both motion faults are sensed by the IMU and alarm at 70°/second travel rate in roll (Code 76) or yaw (Code 77) motion. Troubleshooting focuses on ensuring the IMU is properly oriented and mounted. IF this alarm occurs with any other alarms, diagnose those first. WARNING: shock hazard exists working on live circuitry; the Seakeeper may start remotely. 1) ENSURE flywheel at zero RPM. 2) TURN OFF the low-current DC breaker. 3) PERFORM checks: CONFIRM the IMU is secured tightly to its mounting panel (see Code 5, Attachment 2 for accessing the Seakeeper 1 IMU), and CONFIRM the mounting panel is secure and not vibrating. 4) IF not properly installed, SECURELY FASTEN the IMU in the proper orientation.",
+      fields:[
+        choiceField("c76_other_alarms","Other alarms present alongside 76/77 (diagnose first)",["YES","NO"]),
+        choiceField("c76_rpm_zero","1) Flywheel at zero RPM",["YES","NO"]),
+        choiceField("c76_dc_off","2) Low-current DC breaker OFF",["YES","NO"]),
+        choiceField("c76_imu_secure","3a) IMU secured tightly to mounting panel",["YES","NO"]),
+        choiceField("c76_panel_secure","3b) Mounting panel secure, not vibrating",["YES","NO"]),
+        Object.assign(choiceField("c76_imu_refastened","4) IMU securely fastened in proper orientation",["YES","NO","N/A"]), { condition:() => responses.c76_imu_secure === "NO" || responses.c76_panel_secure === "NO" }),
+        choiceField("c76_vibration_check","5) Nearby components not introducing excessive vibration",["YES","NO"]),
+        choiceField("c76_foundation_torqued","6) Foundation mounting screws torqued per spec, cannot move",["YES","NO"]),
+        notesField("c76_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 76/77 – Connector & Harness Inspection",
+      pdfPage:149,
+      instruction:"7) VERIFY the IMU connector of the harness is fully inserted. 8) REMOVE the harness IMU connector and inspect the connector and IMU pins for damage/corrosion. IF corroded/dirty, CLEAN and reinsert. IF pins are damaged, REPLACE the IMU. 9) INSPECT the harness wiring around the IMU for damage. IF damaged, REPLACE the wire harness. 11-12) CYCLE DC power (including low-current DC) to test if the alarm clears.",
+      fields:[
+        choiceField("c76_connector_seated","7) IMU connector fully inserted",["YES","NO"]),
+        choiceField("c76_connector_condition","8) Connector/pins corroded, dirty, or damaged",["CLEAN/OK","CORRODED/DIRTY","PINS DAMAGED"]),
+        Object.assign(choiceField("c76_connector_cleaned","8) Connector cleaned and reinserted",["YES","NO","N/A"]), { condition:() => responses.c76_connector_condition === "CORRODED/DIRTY" }),
+        Object.assign(choiceField("c76_imu_replaced_pins","8) IMU replaced (damaged pins)",["YES","NO","N/A"]), { condition:() => responses.c76_connector_condition === "PINS DAMAGED" }),
+        choiceField("c76_harness_damaged","9) Harness wiring around IMU damaged",["YES","NO"]),
+        Object.assign(choiceField("c76_harness_replaced","10) Wire harness replaced",["YES","NO","N/A"]), { condition:() => responses.c76_harness_damaged === "YES" }),
+        choiceField("c76_power_cycled","11-12) DC power (and low-current DC) cycled",["YES","NO"]),
+        choiceField("c76_clear_1","Alarm clear after power cycle",["YES","NO"]),
+        notesField("c76_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 76/77 – Completion",
+      pdfPage:149,
+      condition:() => responses.c76_clear_1 !== "YES",
+      instruction:"13) IF the alarm persists, REPLACE the IMU and CYCLE DC power afterward. 14) IF the alarm still persists: LOG CAN data using the Seakeeper Service Tool app per SWI-118 for no more than 10 minutes to capture the issue in CAN traffic, then CONTACT Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com) with inspection/test results and any photos.",
+      fields:[
+        choiceField("c76_imu_replaced_final","13) IMU replaced",["YES","NO","N/A"]),
+        choiceField("c76_power_cycled_2","13) DC power cycled after IMU replacement",["YES","NO","N/A"]),
+        choiceField("c76_final_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c76_can_logged","14a) CAN data logged via Service Tool app (SWI-118, ≤10 min)",["YES","NO","N/A"]), { condition:() => responses.c76_final_clear === "NO" }),
+        Object.assign(choiceField("c76_support_contacted","14b) Seakeeper Product Support contacted",["YES","NO","N/A"]), { condition:() => responses.c76_final_clear === "NO" }),
+        textField("c76_case","Support case number / instructions"),
+        textField("c76_parts","Final) Parts replaced"),
+        textField("c76_repairs","Final) Repairs performed"),
+        notesField("c76_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_76_77(){
+  if(usesSwi206()) return workflow_76_77_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
