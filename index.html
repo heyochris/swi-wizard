@@ -3472,8 +3472,8 @@ function workflow_brake_pressure_206(){
       pdfPage:5,
       instruction:"ACCESS the manifold charge connection by removing panels as necessary. With the brake pressure test gauge (P/N 12830), DETERMINE brake manifold pressure. The low-pressure alarm set point for this model is " + setpoint + ". NOTE: the pressure switch and brake valve use the same female Deutsch connector — confirm harness connectors are installed per the label at each connector, not swapped.",
       fields:[
-        numberField("b12v6_pressure","1) As-found brake manifold pressure (psi)"),
-        choiceField("b12v6_below","2) Pressure BELOW the alarm set point for this model",["YES","NO"]),
+        numberField("b12v6_pressure","Step 2) As-found brake manifold pressure (psi)"),
+        choiceField("b12v6_below","Steps 3–4) Pressure BELOW the alarm set point for this model",["YES","NO"]),
         notesField("b12v6_notes","Notes")
       ]
     },
@@ -3482,8 +3482,8 @@ function workflow_brake_pressure_206(){
       instruction:"Pressure is below the alarm set point. REPLACE the brake assembly per SWI-211. RETURN the faulty brake assembly to Seakeeper for evaluation. Unlike SWI-106, this platform does not call for cylinder rod-end seal or accumulator inspection — the entire brake assembly is replaced as a unit.",
       condition:() => responses.b12v6_below === "YES",
       fields:[
-        choiceField("b12v6_assembly_replaced","3) Brake assembly replaced per SWI-211",["YES","NO"]),
-        choiceField("b12v6_returned","4) Faulty brake assembly returned to Seakeeper",["YES","NO","N/A"]),
+        choiceField("b12v6_assembly_replaced","Step 3a) Brake assembly replaced per SWI-211",["YES","NO"]),
+        choiceField("b12v6_returned","Step 3b) Faulty brake assembly returned to Seakeeper",["YES","NO","N/A"]),
         notesField("b12v6_low_notes","Notes")
       ]
     },
@@ -3492,9 +3492,9 @@ function workflow_brake_pressure_206(){
       instruction:"Brake pressure is above the alarm set point — continue. ENSURE DC control power is aligned to Seakeeper. With a multimeter in DC Volts mode and back-probes, TEST voltage between pressure switch connector pins 1 and 2.",
       condition:() => responses.b12v6_below === "NO",
       fields:[
-        choiceField("b12v6_dcpower","5) DC control power aligned to Seakeeper",["YES","NO"]),
-        numberField("b12v6_sw_v","6) Voltage across pressure switch connector pins 1–2 (VDC)"),
-        choiceField("b12v6_5vdc","7) 5VDC detected across pins 1–2",["YES","NO"]),
+        choiceField("b12v6_dcpower","Step 5a) DC control power aligned to Seakeeper",["YES","NO"]),
+        numberField("b12v6_sw_v","Step 5b) Voltage across pressure switch connector pins 1–2 (VDC)"),
+        choiceField("b12v6_5vdc","Step 5c) 5VDC detected across pins 1–2",["YES","NO"]),
         notesField("b12v6_sw_notes","Notes")
       ]
     },
@@ -3503,8 +3503,8 @@ function workflow_brake_pressure_206(){
       instruction:"5VDC was detected across the pressure switch connector pins, indicating the switch itself is open. REPLACE the brake assembly per SWI-211. RETURN the faulty brake assembly to Seakeeper for evaluation.",
       condition:() => responses.b12v6_below === "NO" && responses.b12v6_5vdc === "YES",
       fields:[
-        choiceField("b12v6_assembly_replaced2","8) Brake assembly replaced per SWI-211",["YES","NO"]),
-        choiceField("b12v6_returned2","9) Faulty brake assembly returned to Seakeeper",["YES","NO","N/A"]),
+        choiceField("b12v6_assembly_replaced2","Step 5c) Brake assembly replaced per SWI-211",["YES","NO"]),
+        choiceField("b12v6_returned2","Faulty brake assembly returned to Seakeeper",["YES","NO","N/A"]),
         notesField("b12v6_5vdc_notes","Notes")
       ]
     },
@@ -3513,8 +3513,8 @@ function workflow_brake_pressure_206(){
       instruction:"No voltage was displayed at the pressure switch connector. DISCONNECT the harness connector from the brake pressure switch. With a multimeter in DC Volts mode, CONFIRM 4.8–5.2 VDC across pins 1 and 2 of the pressure switch HARNESS connector (switch itself disconnected).",
       condition:() => responses.b12v6_below === "NO" && responses.b12v6_5vdc === "NO",
       fields:[
-        numberField("b12v6_harness_v","10) Voltage across harness connector pins 1–2 (VDC)"),
-        choiceField("b12v6_harness_ok","11) Voltage within 4.8–5.2 VDC",["YES","NO"]),
+        numberField("b12v6_harness_v","Step 7) Voltage across harness connector pins 1–2 (VDC)"),
+        choiceField("b12v6_harness_ok","Step 7) Voltage within 4.8–5.2 VDC",["YES","NO"]),
         notesField("b12v6_harness_notes","Notes")
       ]
     },
@@ -3523,14 +3523,14 @@ function workflow_brake_pressure_206(){
       instruction:"Voltage was unsatisfactory. DISCONNECT the GCM 70-pin connector. INSPECT the GCM 70-pin connector and pressure switch connector for loose wires and crimps. CONFIRM 0.3 Ω or less between pressure switch connector pin 1 and GCM pin 25, and between pin 2 and " + pin2 + ". IF either resistance check is greater than 0.3 Ω, CONTACT the Seakeeper Product Support Team with test results for review. IF wires, crimps, and resistances are satisfactory, REPLACE the GCM.",
       condition:() => responses.b12v6_below === "NO" && responses.b12v6_5vdc === "NO" && responses.b12v6_harness_ok === "NO",
       fields:[
-        choiceField("b12v6_conn_ok","12) Wires / crimps at both connectors OK (repaired if needed)",["YES","NO"]),
-        numberField("b12v6_r_pin25","13) Resistance: pressure switch pin 1 to GCM pin 25 (Ω)"),
-        numberField("b12v6_r_pin2","14) Resistance: pressure switch pin 2 to " + pin2 + " (Ω)"),
-        choiceField("b12v6_r_ok","15) Both resistance checks 0.3 Ω or less",["YES","NO"]),
-        Object.assign(choiceField("b12v6_support","15a) Contacted Seakeeper Product Support with test data",["YES","NO","N/A"]), {
+        choiceField("b12v6_conn_ok","Step 8b) Wires / crimps at both connectors OK (repaired if needed)",["YES","NO"]),
+        numberField("b12v6_r_pin25","Step 8c) Resistance: pressure switch pin 1 to GCM pin 25 (Ω)"),
+        numberField("b12v6_r_pin2","Step 8d) Resistance: pressure switch pin 2 to " + pin2 + " (Ω)"),
+        choiceField("b12v6_r_ok","Steps 8e–8f) Both resistance checks 0.3 Ω or less",["YES","NO"]),
+        Object.assign(choiceField("b12v6_support","Step 8e) Contacted Seakeeper Product Support with test data",["YES","NO","N/A"]), {
           condition:() => responses.b12v6_r_ok === "NO"
         }),
-        Object.assign(choiceField("b12v6_gcm_replaced","15b) GCM replaced",["YES","NO","N/A"]), {
+        Object.assign(choiceField("b12v6_gcm_replaced","Step 8f) GCM replaced",["YES","NO","N/A"]), {
           condition:() => responses.b12v6_r_ok === "YES"
         }),
         notesField("b12v6_gcm_notes","Notes")
@@ -3538,10 +3538,13 @@ function workflow_brake_pressure_206(){
     },
     {
       title:"SWI-206 Codes 12/13/14 – Completion",
-      instruction:"IF the alarm persists after GCM replacement, REPLACE the brake assembly per SWI-211 and RETURN it to Seakeeper for evaluation. Record final results below.",
+      instruction:"IF the alarm persists, REPLACE the brake assembly per SWI-211 and RETURN it to Seakeeper for evaluation. Record final results below.",
       fields:[
-        choiceField("b12v6_persist","16) Alarm persisted after GCM replacement",["YES","NO","N/A"]),
-        Object.assign(choiceField("b12v6_final_assembly","16a) Brake assembly replaced per SWI-211",["YES","NO","N/A"]), {
+        choiceField("b12v6_persist","Step 9) Alarm persisted after the repair steps above",["YES","NO","N/A"]),
+        Object.assign(choiceField("b12v6_final_assembly","Step 9) Brake assembly replaced per SWI-211",["YES","NO","N/A"]), {
+          condition:() => responses.b12v6_persist === "YES"
+        }),
+        Object.assign(choiceField("b12v6_final_returned","Step 10) Faulty brake assembly returned to Seakeeper",["YES","NO","N/A"]), {
           condition:() => responses.b12v6_persist === "YES"
         }),
         numberField("b12v6_final_psi","Final) Final brake pressure (psi)"),
