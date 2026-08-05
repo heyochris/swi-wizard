@@ -5390,7 +5390,104 @@ function workflow_35_251(){
   ];
 }
 
+/** SWI-206 Code 36 (pages 109-114) — Motor Fault. Rewritten from real
+ *  SWI-206 text: model-specific MDB/motor-drive-cable inspection branch
+ *  (Seakeeper 4.5/10/14 = Section 2, Seakeeper 1/4 = Section 3). */
+function workflow_36_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const is45plus = n === 10 || n === 14 || /4\.5/.test(String(model || ""));
+  return [
+    {
+      title:"SWI-206 Code 36 – Background & Support Photo",
+      pdfPage:109,
+      instruction:"BACKGROUND: Code 36 is triggered when the flywheel motor spins faster than a programmed limit in the Seakeeper drive software. It clears once the motor is powered and running below that limit. Basic troubleshooting can eliminate some causes: electrical connections at the MDB and GCM harness. MDB replacement may be necessary. This procedure also uses a time-resistance megohm test on the motor drive cable/flywheel motor insulation (references: SWI-093 Molex Connector, SWI-124 Motor Lead Testing). 1) PHOTOGRAPH the Information screen (showing software versions). 2) SUBMIT the photo to support@seakeeper.com (or emeasupport@seakeeper.com) for evaluation. 3) WHEN told by Seakeeper to proceed, CONTINUE.",
+      fields:[
+        choiceField("c36_photo","1) Information screen photo taken",["YES","NO"]),
+        choiceField("c36_submitted","2) Photo submitted to Seakeeper Product Support",["YES","NO"]),
+        choiceField("c36_told_proceed","3) Told by Seakeeper to proceed",["YES","NO"]),
+        notesField("c36_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 36 – Connector Inspection (Section 1)",
+      pdfPage:110,
+      instruction:"WARNING: personnel shock hazard exists when working on live circuitry — the Seakeeper may start remotely. 4) ENSURE the flywheel is at zero RPM at the MFD app or display. 5) TURN OFF the low-current DC breaker. 6) At the MDB, VERIFY the harness connector is fully inserted (see Code 5, Attachment 2 for accessing Seakeeper 1 Curtis drive). IF not seated fully, FULLY SEAT it. 8) At the GCM, VERIFY the 70-pin connector is fully seated; IF not, FULLY SEAT it. 10) INSPECT the wire harness for any damage near the MDB. IF damage found: ORDER a replacement wire harness and CONTINUE troubleshooting.",
+      fields:[
+        choiceField("c36_rpm_zero","4) Flywheel at zero RPM",["YES","NO"]),
+        choiceField("c36_dc_breaker_off","5) Low-current DC breaker OFF",["YES","NO"]),
+        choiceField("c36_mdb_seated","6) MDB harness connector fully inserted",["YES","NO"]),
+        Object.assign(choiceField("c36_mdb_reseated","7) MDB connector fully seated after correction",["YES","NO","N/A"]), { condition:() => responses.c36_mdb_seated === "NO" }),
+        choiceField("c36_gcm_seated","8) GCM 70-pin connector fully seated",["YES","NO"]),
+        Object.assign(choiceField("c36_gcm_reseated","9) GCM connector fully seated after correction",["YES","NO","N/A"]), { condition:() => responses.c36_gcm_seated === "NO" }),
+        choiceField("c36_harness_damage","10) Wire harness damage found near MDB",["YES","NO"]),
+        Object.assign(choiceField("c36_harness_ordered","10.i) Replacement wire harness ordered",["YES","NO","N/A"]), { condition:() => responses.c36_harness_damage === "YES" }),
+        notesField("c36_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 36 – Motor Drive Cable Inspection & Isolation",
+      pdfPage:111,
+      instruction:"11) IF Seakeeper 4.5 or above: TURN OFF the AC power breaker, REMOVE the MDB cover to expose the \"MOTOR\" lead terminal, INSPECT crimps at the end of each motor cable lead, LOOSEN the MDB feed-through grommet, EXAMINE motor drive cable insulation at the grommet, and ENSURE the interior of the MDB is free of moisture. 12) IF Seakeeper 1 or 4: TURN OFF the high-current DC power breaker, REMOVE the cover at the motor drive cable contact posts, and INSPECT for severe corrosion at contacts or cable damage. 13) For all models, DISCONNECT AND ELECTRICALLY ISOLATE the motor drive cable leads. WARNING: shock hazard exists when the flywheel is rotating or power is applied.",
+      fields:[
+        Object.assign(choiceField("c36_ac_breaker_off","11a) AC power breaker OFF",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_mdb_cover_removed","11b) MDB cover removed, motor lead terminal exposed",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_crimps_insp","11b.i) Crimps at motor cable leads inspected",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_grommet_loosened","11b.ii) MDB feed-through grommet loosened",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_insulation_insp","11b.iii) Motor drive cable insulation at grommet examined",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_moisture_check","11b.iv) MDB interior free of moisture",["YES","NO","N/A"]), { condition:() => is45plus }),
+        Object.assign(choiceField("c36_dc_breaker_off_12","12a) High-current DC power breaker OFF",["YES","NO","N/A"]), { condition:() => !is45plus }),
+        Object.assign(choiceField("c36_contact_cover_removed","12b) Cover removed at motor drive cable contact posts",["YES","NO","N/A"]), { condition:() => !is45plus }),
+        Object.assign(choiceField("c36_corrosion_check","12c) Severe corrosion or cable damage found at contacts",["YES","NO","N/A"]), { condition:() => !is45plus }),
+        choiceField("c36_leads_isolated","13) Motor drive cable leads disconnected and electrically isolated",["YES","NO"]),
+        notesField("c36_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 36 – Motor Lead Testing (SWI-124)",
+      pdfPage:112,
+      instruction: is45plus
+        ? "SECTION 2 (Seakeeper 4.5 and above): 1) PERFORM testing of motor leads per SWI-124, Seakeeper Motor Lead Testing. 2) IF the motor drive cable has ANY phase-to-phase resistance greater than 2.0Ω, ANY phase-to-phase resistance significantly different from the other two, OR unsatisfactory megohm results: CONTACT Seakeeper Product Support with all data recorded and photos of any motor power cable damage. OTHERWISE: RE-ATTACH all motor cable leads to their terminals, TORQUE the MDB cover screws to 19 in-lbs (2.2 Nm), TURN ON all Seakeeper power breakers, and IF the issue is not found, CONTINUE to Completion."
+        : "SECTION 3 (Seakeeper 1 or 4): 1) PERFORM testing of motor leads per SWI-124, Seakeeper Motor Lead Testing (see Code 5, Attachment 2 for accessing Seakeeper 1 components). 2) IF the motor drive cable has ANY phase-to-phase resistance greater than 2.0Ω, ANY phase-to-phase resistance significantly different from the other two, OR unsatisfactory megohm results: CONTACT Seakeeper Product Support with all data recorded and photos of any motor power cable damage. OTHERWISE: RE-ATTACH all motor cable leads to their terminals (if not already done), ENSURE all terminals torqued per the Torque Specifications section, INSTALL covers at the motor drive cable contact posts and high-DC-current input terminals, TURN ON all Seakeeper power breakers, and IF the issue is not found, CONTINUE to Completion.",
+      fields:[
+        choiceField("c36_swi124_performed","1) SWI-124 motor lead testing performed",["YES","NO"]),
+        numberField("c36_phase_r1","2) Phase-to-phase resistance 1 (Ω)"),
+        numberField("c36_phase_r2","2) Phase-to-phase resistance 2 (Ω)"),
+        numberField("c36_phase_r3","2) Phase-to-phase resistance 3 (Ω)"),
+        choiceField("c36_r_over_2ohm","2) Any phase-to-phase resistance greater than 2.0Ω",["YES","NO"]),
+        choiceField("c36_r_mismatch","2) Any phase significantly different from other two",["YES","NO"]),
+        choiceField("c36_megohm_result","2) Megohm test result",["SATISFACTORY","UNSATISFACTORY"]),
+        choiceField("c36_test_result","Overall SWI-124 result",["SATISFACTORY","UNSATISFACTORY"]),
+        Object.assign(choiceField("c36_support_contacted_test","Seakeeper Product Support contacted (unsatisfactory result)",["YES","NO","N/A"]), { condition:() => responses.c36_test_result === "UNSATISFACTORY" }),
+        Object.assign(choiceField("c36_leads_reattached","Motor cable leads re-attached to terminals",["YES","NO","N/A"]), { condition:() => responses.c36_test_result === "SATISFACTORY" }),
+        Object.assign(choiceField("c36_torqued","Terminals/MDB cover torqued per spec",["YES","NO","N/A"]), { condition:() => responses.c36_test_result === "SATISFACTORY" }),
+        Object.assign(choiceField("c36_covers_installed","Covers installed / breakers turned ON",["YES","NO","N/A"]), { condition:() => responses.c36_test_result === "SATISFACTORY" }),
+        choiceField("c36_issue_found","Issue found in Section 2/3 testing",["YES","NO"]),
+        notesField("c36_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 36 – Completion",
+      pdfPage:114,
+      condition:() => responses.c36_issue_found !== "YES" && responses.c36_test_result !== "UNSATISFACTORY",
+      instruction:"SECTION 4: 1) IF previous steps have not found the cause of the alarm, REPLACE the MDB. 2) SPOOL the unit to verify the alarm clears. 3) IF the alarm persists: RECORD video of the display maintenance screen (RPM and current draw) while attempting to spool up, COMPILE all data and any photos of damage/information screen, and SUBMIT everything to Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("c36_mdb_replaced","1) MDB replaced",["YES","NO","N/A"]),
+        choiceField("c36_spooled","2) Unit spooled to verify alarm clear",["YES","NO"]),
+        choiceField("c36_final_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c36_video_recorded","3a) Video of maintenance screen recorded",["YES","NO","N/A"]), { condition:() => responses.c36_final_clear === "NO" }),
+        Object.assign(choiceField("c36_support_contacted_final","3c) Data/recordings submitted to Seakeeper Product Support",["YES","NO","N/A"]), { condition:() => responses.c36_final_clear === "NO" }),
+        textField("c36_case","Support case number / instructions"),
+        textField("c36_parts","Final) Parts replaced"),
+        textField("c36_repairs","Final) Repairs performed"),
+        notesField("c36_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_36(){
+  if(usesSwi206()) return workflow_36_206();
   return [
     {
       title:"SWI-106 SECTION 1: INITIAL CHECKS • Steps 10-4-5",
