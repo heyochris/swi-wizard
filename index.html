@@ -2062,11 +2062,13 @@ async function renderCleanPdfPage(pageNumber, opts){
   try{
     hideNativePdf();
     const doc = await loadPdfJsDocument();
-    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
+    // A newer render call has since started — leave the loading indicator alone,
+    // since that newer call owns it now and will hide it when IT finishes.
+    if(token !== pdfjsRenderToken) return true;
     const maxPage = doc.numPages || 1;
     const pageNo = Math.min(Math.max(1, pageNumber || 1), maxPage);
     const page = await doc.getPage(pageNo);
-    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
+    if(token !== pdfjsRenderToken) return true;
 
     const baseViewport = page.getViewport({ scale: 1 });
     const scroller = el("swiScroller");
@@ -2098,7 +2100,7 @@ async function renderCleanPdfPage(pageNumber, opts){
       viewport: viewport,
       intent: "display"
     }).promise;
-    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
+    if(token !== pdfjsRenderToken) return true;
 
     canvas.classList.remove("hidden");
     if(fallback) fallback.classList.add("hidden");
@@ -2116,7 +2118,7 @@ async function renderCleanPdfPage(pageNumber, opts){
     return true;
   }catch(err){
     console.error(err);
-    hideSwiLoading();
+    if(token === pdfjsRenderToken) hideSwiLoading();
     // Offline / file:// fallback: open PDF in the device viewer (no server)
     try{
       if(showNativePdf(pageNumber)) return true;
