@@ -8455,7 +8455,76 @@ function workflow_163(){
   ];
 }
 
+/** SWI-206 MFD Integration (ConnectBox-focused) (SWI-206 pages 259-265) */
+function workflow_mfd_206(){
+  return [
+    {
+      title:"SWI-206 MFD Integration – Background",
+      pdfPage:259,
+      instruction:"This guide addresses non-code compatibility issues between the Seakeeper ConnectBox (P/N 20415) or optional 5\" Touch Display (P/N 30298) and compatible MFD systems, including the MFD webhost error 'Hosting Seakeeper has stopped responding!'. Seakeeper has MFD-specific Technical Bulletins covering integration requirements for Garmin, Raymarine, Navico/Simrad, and Furuno. Software updates, power-up sequence, and Ethernet expansion hubs can negatively impact compatibility. Not all MFDs from these manufacturers are compatible — confirm the specific device supports Seakeeper per compatibility documentation. REFERENCES: TB-90478 (Garmin), TB-90479 (Raymarine), TB-90480 (NAVICO), TB-90598 (Furuno), TB-90555 (Display Software Compatibility), TB-90640 (ConnectBox Connection Requirements), TB-90896 (ConnectBox Installation Guide), applicable model Cable Block Diagram.",
+      fields:[choiceField("cmfd_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("cmfd_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 MFD Integration – Software & Cable Verification",
+      pdfPage:260,
+      instruction:"1) VERIFY Seakeeper display software up-to-date per TB-90555: a) On MFD app/Display, VERIFY current ConnectBox software version loaded on Information page. 2) VERIFY latest MFD manufacturer's software version per relevant MFD Compatibility Technical Bulletin. 3) ENSURE ethernet cable connected to correct connection at ConnectBox. Compatibility cable P/Ns: Garmin 20373, Raymarine 20380, NAVICO/Simrad 20346, Furuno 20506. NOTE: Seakeeper is not responsible for updating MFD manufacturer software.",
+      fields:[
+        choiceField("cmfd_software_current","1) ConnectBox software up-to-date (TB-90555)",["YES","NO"]),
+        choiceField("cmfd_mfd_software_current","2) MFD manufacturer software up-to-date",["YES","NO"]),
+        choiceField("cmfd_cable_correct","3) Ethernet cable at correct ConnectBox connection",["YES","NO"]),
+        notesField("cmfd_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 MFD Integration – Connections Verified",
+      pdfPage:261,
+      instruction:"4) VERIFY all display connections made securely from Seakeeper ethernet connection to MFD (Garmin, Raymarine, Furuno ethernet hub/1-2 connector, or Simrad/Navico connectors as applicable).",
+      fields:[choiceField("cmfd_connections_secure","4) All ethernet connections secure",["YES","NO"]), notesField("cmfd_s3_notes","Notes")]
+    },
+    {
+      title:"SWI-206 MFD Integration – ConnectBox DHCP Sync Mode",
+      pdfPage:262,
+      instruction:"NOTE: ConnectBox software 3.0.4-de5310b9 and later has only two synchronization modes: DHCP server function OFF (Garmin, Raymarine, Furuno — spool bar LEDs strobe right to left) and DHCP server function ON (NAVICO — spool bar strobes left to right). 5) Using the appropriate MFD Compatibility Technical Bulletin, ENSURE ConnectBox is correctly synchronized: a) CYCLE between DHCP modes by holding the Ethernet/Connectivity button 10 seconds until spool bar LEDs strobe in the correct direction for your MFD brand. b) IF mode fails to switch, REPEAT Step 5a. 6) CYCLE MFD and Seakeeper DC control power: a) TURN OFF DC control power to Seakeeper. b) CYCLE power to MFD. c) TURN ON DC control power to Seakeeper. NOTE: Multiple power cycles may be required before the Seakeeper icon populates on the MFD's connected component list.",
+      fields:[
+        choiceField("cmfd_dhcp_mode_correct","5) ConnectBox DHCP sync mode set correctly for MFD brand",["YES","NO"]),
+        choiceField("cmfd_power_cycled","6) MFD and Seakeeper DC control power cycled",["YES","NO"]),
+        notesField("cmfd_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 MFD Integration – Network Hub & Final Checks",
+      pdfPage:263,
+      instruction:"7) Except for the ConnectBox NMEA backbone connection, ENSURE Seakeeper CAN is not connected to a NMEA2000 backbone. 8) IF ConnectBox connected to MFD via network expansion hub: BYPASS the hub and CONNECT compatibility cable directly from ConnectBox to MFD. a) IF bypassing resolves the issue, DIRECTLY CONNECT if possible. b) IF the hub is required by the MFD, CONTACT the network installer or MFD manufacturer. 9) ENSURE Seakeeper app appears on MFD's list of connected ethernet/HTML devices. 10) IF equipped with optional 5\" display, CHECK flywheel speed matches RPM at both 5\" Display and MFD app. NOTE: ConnectBox requires a SOG signal from the NMEA network. Seakeeper is not responsible for supporting network hub troubleshooting.",
+      fields:[
+        choiceField("cmfd_nmea_backbone_ok","7) Seakeeper CAN not connected to NMEA2000 backbone (except via ConnectBox)",["YES","NO"]),
+        Object.assign(choiceField("cmfd_hub_bypassed","8) Network hub bypassed / direct connection made",["YES","NO","N/A"]), { condition:() => true }),
+        choiceField("cmfd_app_visible","9) Seakeeper app visible on MFD device list",["YES","NO"]),
+        Object.assign(choiceField("cmfd_rpm_match","10) Flywheel RPM matches between 5\" Display and MFD app",["YES","NO","N/A"]), { condition:() => true }),
+        notesField("cmfd_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 MFD Integration – Escalation",
+      pdfPage:264,
+      instruction:"11) REVIEW lessons learned (Attachment) for possible resolution. 12) IF MFD integration issues persist, CONTACT Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) with: a) Make/model of MFD and software version. b) Any error messages on MFD. c) Seakeeper interface installed (5\" Display or ConnectBox) and software version. d) Notes of all actions taken. e) Whether Seakeeper app appears on MFD and how (icon visible or not).",
+      fields:[
+        choiceField("cmfd_final_resolved","Final) MFD integration issue resolved",["YES","NO"]),
+        Object.assign(choiceField("cmfd_support_contacted","12) Product Support contacted with required details",["YES","NO","N/A"]), { condition:() => responses.cmfd_final_resolved === "NO" }),
+        textField("cmfd_case","Final) Support case number / instructions"),
+        notesField("cmfd_final_notes","Final) Technician notes")
+      ]
+    },
+    {
+      title:"SWI-206 MFD Integration – Attachment: Lessons Learned",
+      pdfPage:265,
+      instruction:"1) General rules of thumb: a) Garmin OneHelm™ is required for Seakeeper compatibility (available on certain Garmin models). b) All Raymarine Axiom® models support Seakeeper compatibility. c) Furuno NavNet™ is required for Seakeeper compatibility. 2) Furuno/ConnectBox: not supported until NavNet™ TZT3 v3.5 (October 2022). 3) Garmin power-up sequence: power up Garmin MFD before Seakeeper (Garmin acts as DHCP server for the ConnectBox/Display's IP address) — if Seakeeper fails to secure an IP address (OneHelm error), cycle Seakeeper power. 4) Raymarine/ConnectBox: early ConnectBox software was incompatible with Raymarine — update ConnectBox software per TB-90555. 5) NAVICO with multiple Seakeepers: if Seakeeper ID #1 is unavailable, re-designate another Seakeeper as ID #1. 6) Garmin software v20.0 does not communicate with Seakeeper — must be updated. 7) Garmin EmpirBus/digital switching systems: ensure no error codes on MCUs of digital switching networks.",
+      fields:[choiceField("cmfd_lessons_reviewed","Lessons-learned attachment reviewed",["YES","NO"]), notesField("cmfd_s7_notes","Notes")]
+    }
+  ];
+}
+
 function workflow_mfd(){
+  if(usesSwi206()) return workflow_mfd_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
@@ -8770,7 +8839,73 @@ function workflow_noise(){
   ];
 }
 
+/** SWI-206 Corrosion (SWI-206 pages 298-302) */
+function workflow_corr_206(){
+  return [
+    {
+      title:"SWI-206 Corrosion – Background",
+      pdfPage:298,
+      instruction:"BACKGROUND: Corrosion is rarely the cause of a service call but can cause code alarms (loss of angle sensor operation, loss of brake pressure, banging from corroded mounting fasteners, or electrical codes). Contributing factors: poor ventilation, seawater spray, galvanic problems, and chemical/mechanical disruption of painted surfaces exposing susceptible metals. Most Seakeeper construction uses 6000-series aluminum, susceptible to poultice corrosion — once painted surfaces are disturbed (even microscopically), a crusty white aluminum hydroxide forms when exposed to moisture, lifting paint further and spreading corrosion. Correcting environmental issues is beyond this guide's scope; educate the vessel operator on occasional freshwater rinse (SB-90106) as vital corrosion prevention. REFERENCES: SB-90026 – Paint Touch-up, SB-90106 – Fresh Water Rinse, SWI-098 – Ground Connections Various Configurations, applicable model Installation Manual (manuals.seakeeper.com).",
+      fields:[choiceField("ccorr_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("ccorr_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Corrosion – Section 1: Inspection & Identification",
+      pdfPage:299,
+      instruction:"1) ENSURE flywheel at zero RPM. 2) TURN OFF AC or DC high current breaker to Seakeeper. 3) INSPECT for severity of corrosion: a) IF necessary, ACTIVATE brake override to manually precess enclosure. b) RECORD photographs of corrosion at critical components (gimbal bearings/caps/shafts, brake cylinder rear clevises, brake cylinder rod end pins/clevises, brake hose fittings, mounting hardware, coolant hose clamps). c) ASSESS area ventilation/humidity: i) engine compartment — assume adequate ventilation (regulatory compliance); ii) lazarette/dropdown space — ensure natural ventilation at minimum; iii) IF mildew/lack of ventilation, INFORM operator of ventilation appliance options.",
+      fields:[
+        choiceField("ccorr_severity","3) Corrosion severity assessed",["MINOR","MODERATE","SEVERE"]),
+        choiceField("ccorr_photos","3b) Photos of critical components recorded",["YES","NO"]),
+        choiceField("ccorr_ventilation_ok","3c) Area ventilation/humidity acceptable",["YES","NO"]),
+        notesField("ccorr_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Corrosion – Moisture, Grounds & DC Terminals",
+      pdfPage:300,
+      instruction:"d) EVALUATE source of any liquid dripping onto Seakeeper: inspect overhead hatch seals, overhead pipes for condensation/leakage, and space for high bilge levels. e) INSPECT for evidence of submersion. 4) INSPECT electrical connections of wire harness for corrosion/moisture intrusion. 5) REMOVE angle sensor mounting plates and CHECK for excessive corrosion on gimbal shaft. 6) VERIFY ground cable ends securely fastened: heat exchanger to foundation ground; motor drive to frame/foundation ground; AC-powered models enclosure to foundation ground; foundation to vessel negative ground/bonding system. 7) IF DC-powered model, VERIFY motor drive terminals not corroded — IF corrosion found: CLEAN terminals/cable ends, APPLY dielectric grease, ENSURE terminal screws torqued per spec.",
+      fields:[
+        choiceField("ccorr_moisture_source","d) Moisture/dripping source identified and addressed",["YES","NO","N/A"]),
+        choiceField("ccorr_harness_corrosion","4) Wire harness connections free of corrosion/moisture",["YES","NO"]),
+        choiceField("ccorr_gimbal_shaft_ok","5) Gimbal shaft free of excessive corrosion",["YES","NO"]),
+        choiceField("ccorr_grounds_secure","6) Ground cable ends securely fastened",["YES","NO"]),
+        Object.assign(choiceField("ccorr_dc_terminals_ok","7) DC motor drive terminals free of corrosion",["YES","NO","N/A"]), { condition:() => true }),
+        notesField("ccorr_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Corrosion – Section 2: Restoration",
+      pdfPage:301,
+      instruction:"In severe cases (e.g., submersion), Seakeeper replacement may be necessary. If severe corrosion is environmental, the unit may need removal for complete shop restoration; reinstall per the applicable model's Installation Manual (manuals.seakeeper.com). 1) ENSURE flywheel at zero RPM. 2) DEENERGIZE all power to Seakeeper. 3) REMOVE top cover panels. 4) REPLACE components corroded beyond reasonable restoration: a) IF multiple components corroded beyond restoration, CONTACT Seakeeper Product Support to consider other options. b) IF brake pin hardware corroded (pin retaining rings) or severe corrosion around brake pins, REPLACE brake pin hardware and all bushings per SWI-209. c) IF corrosion at an AC-powered Motor Drive, REMOVE Motor Drive cover and INSPECT internal surfaces — IF corrosion/moisture intrusion present, REPLACE motor drive per SWI-094. d) IF electronic components show severe corrosion, REPLACE affected components. e) REPLACE other corroded components/hardware as necessary.",
+      fields:[
+        choiceField("ccorr_components_replaced","4) Components beyond restoration replaced",["YES","NO","N/A"]),
+        Object.assign(choiceField("ccorr_brake_pin_hardware","4b) Brake pin hardware/bushings replaced per SWI-209",["YES","NO","N/A"]), { condition:() => true }),
+        Object.assign(choiceField("ccorr_motor_drive_replaced","4c) AC Motor Drive replaced per SWI-094",["YES","NO","N/A"]), { condition:() => true }),
+        notesField("ccorr_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Corrosion – Paint Restoration & Grounds",
+      pdfPage:302,
+      instruction:"5) IF corrosion excessive at gimbal bearings: a) REMOVE gimbal angle mounting plate. b) INSPECT ends of gimbal shaft for corrosion at sensor magnet. 6) For painted surfaces with corrosion: a) REMOVE rust with wire brush/scraper. b) CLEAN aluminum surfaces with Aluma Brite or similar. c) SAND surfaces with 220 grit sandpaper. d) CLEAN all surfaces with lint-free rags and acetone. 7) Once clean, APPLY Awlgrip® S9001 primer / S3001 converter mixture to exposed metal. 8) When primer dried, APPLY approved topcoat: Awlgrip® F8063 (Snow white) + Converter G3010, OR Alexseal® Topcoat 501 (P/N AYCT9134G) + Converter (P/N AYCC5051G). 9) ENSURE all Seakeeper grounds secured per SWI-098. 10) EDUCATE vessel operator on freshwater rinse benefits per SB-90106.",
+      fields:[
+        choiceField("ccorr_gimbal_bearing_check","5) Gimbal bearing/shaft corrosion inspected",["YES","NO","N/A"]),
+        choiceField("ccorr_paint_restored","6-8) Painted surfaces restored (clean/sand/prime/topcoat)",["YES","NO","N/A"]),
+        choiceField("ccorr_grounds_final","9) All grounds secured per SWI-098",["YES","NO"]),
+        choiceField("ccorr_operator_educated","10) Operator educated on freshwater rinse (SB-90106)",["YES","NO"]),
+        choiceField("ccorr_final_alarm_clear","Final) Alarm/issue resolved",["YES","NO"]),
+        choiceField("ccorr_seatrial","Final) Sea trial performed",["YES","NO","N/A"]),
+        choiceField("ccorr_photo","Final) Information-screen photo attached",["YES","NO"]),
+        textField("ccorr_parts","Final) Parts replaced"),
+        textField("ccorr_repairs","Final) Repairs performed"),
+        textField("ccorr_case","Final) Support case number / instructions"),
+        notesField("ccorr_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_corr(){
+  if(usesSwi206()) return workflow_corr_206();
   return [
     {
       title:"SWI-106 SECTION 1: Inspection & Identification • Steps 1-2",
@@ -8810,7 +8945,72 @@ function workflow_corr(){
   ];
 }
 
+/** SWI-206 Performance Issues (SWI-206 pages 303-307) */
+function workflow_perf_206(){
+  return [
+    {
+      title:"SWI-206 Performance Issues – Background",
+      pdfPage:303,
+      instruction:"BACKGROUND: Addresses an installed Seakeeper configuration's inability to meet roll reduction expectations based on the Performance Prediction (PP) Report or customer expectations. Start by reviewing the PP Report and confirming vessel characteristics reflect the complete load condition. Coastal Operation criterion: 80% roll reduction at 10° uncontrolled roll, minimum 80% at 6°. Offshore Operation: 80% at 15°, minimum 80% at 10°. Uncontrolled roll motion is a function of sea state and resonant roll period. When configuration is below recommended level, roll reduction is adversely affected as sea state increases. If the installed configuration meets/exceeds the PP Report recommendation, confirm vessel characteristics for accuracy — the report is only as good as the input data. Other possible causes: GCM software interpretation of IMU input, installation issues, NMEA network connection, or vessel modifications changing the original configuration.",
+      fields:[choiceField("cperf_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("cperf_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Performance Issues – References",
+      pdfPage:304,
+      instruction:"REFERENCES: Sea Trial App Users Guide, SWI-118 – Seakeeper Service Tool App User Guide, applicable model Electrical Sub-system or Upper Foundation Assembly drawing (Dealer Access).",
+      fields:[choiceField("cperf_refs_reviewed","References reviewed",["YES","NO"]), notesField("cperf_s2_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Performance Issues – Owner Interview & Setup",
+      pdfPage:305,
+      instruction:"1) INTERVIEW AND RECORD owner/captain: a) Any vessel modifications before issue noted (added weight, primary machinery changes, hull modifications)? b) Was vessel recently purchased / new (make/model)? c) When did performance first appear degraded, what else changed? d) What sea/operating conditions were present when degradation first appeared? e) Was flywheel at target RPM when degradation was seen? 2) CALCULATE boat Seakeeper sizing using the Small Boat Sizing Guide/Sizing Program to create a PP Report (contact Sales Rep for OEM installation reports). 3) TURN OFF AC or high-current DC power breaker. 4) ENSURE flywheel at zero RPM. NOTE: Addition of 10% of vessel weight can adversely affect performance.",
+      fields:[
+        choiceField("cperf_modifications","1a) Vessel modifications before issue noted",["YES","NO"]),
+        textField("cperf_mod_details","1a) Modification details (if any)"),
+        choiceField("cperf_recent_purchase","1b) Recently purchased / new vessel",["YES","NO"]),
+        textField("cperf_when_degraded","1c) When performance first appeared degraded / what changed"),
+        textField("cperf_conditions","1d) Sea/operating conditions when degradation appeared"),
+        choiceField("cperf_rpm_at_target","1e) Flywheel at target RPM when degradation seen",["YES","NO","UNKNOWN"]),
+        choiceField("cperf_pp_report_done","2) PP Report calculated/obtained",["YES","NO"]),
+        notesField("cperf_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Performance Issues – Inspection",
+      pdfPage:306,
+      instruction:"5) INSPECT Seakeeper: a) REVIEW alarm history — ADDRESS motion-related alarm codes per applicable guide (Codes 19, 37, 38, 39, 50, 55, 56, 72, 76, 78, 111, or 115); PHOTOGRAPH alarm history pages. b) PHOTOGRAPH display information screen. c) CHECK mounting screw torques per Torque Specifications. d) ENSURE IMU mounted securely to panel by two bolts/nuts. e) ENSURE IMU housing intact, no cracks. f) ENSURE IMU mounting panel securely fastened to foundation. g) ENSURE IMU mounted in correct orientation per applicable model Upper Foundation drawing. 6) At ConnectBox, ENSURE NMEA2000 connection at correct location (ConnectBox requires SOG signal from NMEA network).",
+      fields:[
+        choiceField("cperf_motion_alarms_addressed","5a) Motion-related alarm codes addressed",["YES","NO","N/A"]),
+        choiceField("cperf_photo_alarm_history","5a-ii) Alarm history pages photographed",["YES","NO"]),
+        choiceField("cperf_photo_info_screen","5b) Information screen photographed",["YES","NO"]),
+        choiceField("cperf_torque_ok","5c) Mounting screw torques checked",["YES","NO"]),
+        choiceField("cperf_imu_secure","5d-g) IMU mounting/orientation/housing verified",["YES","NO"]),
+        choiceField("cperf_nmea_location_ok","6) ConnectBox NMEA2000 connection at correct location",["YES","NO"]),
+        notesField("cperf_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Performance Issues – Sea Trial & Escalation",
+      pdfPage:307,
+      instruction:"7) PERFORM sea trial: a) SET UP Seakeeper Service Tool app to run data log per SWI-118 if available. b) IF unavailable, RUN Seakeeper Sea Trial App on a smartphone. c) COMPLETE 10 min recordings with Seakeeper unlocked (on) and 10 min locked (off). d) SUBMIT Sea Trial Report via app. e) EVALUATE performance based on app results. f) OBSERVE sphere enclosure precession in Sea Mode — IF abnormal (erratic or enclosure remains to one side), VIDEO RECORD Seakeeper while precessing. 8) IF issue not found or assistance needed, SUBMIT all images, recordings, data log files, and interview responses to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("cperf_seatrial_tool","7a/b) Sea trial data logged (Service Tool or Sea Trial App)",["YES","NO"]),
+        choiceField("cperf_seatrial_recordings","7c) 10-min unlocked / 10-min locked recordings completed",["YES","NO"]),
+        choiceField("cperf_precession_abnormal","7f) Sphere precession abnormal in Sea Mode",["YES","NO"]),
+        Object.assign(choiceField("cperf_video_recorded","7f-i) Video recorded of abnormal precession",["YES","NO","N/A"]), { condition:() => responses.cperf_precession_abnormal === "YES" }),
+        choiceField("cperf_final_resolved","Final) Performance issue resolved",["YES","NO"]),
+        Object.assign(choiceField("cperf_support_submitted","8) Data submitted to Seakeeper Product Support",["YES","NO","N/A"]), { condition:() => responses.cperf_final_resolved === "NO" }),
+        textField("cperf_case","Final) Support case number / instructions"),
+        textField("cperf_parts","Final) Parts replaced"),
+        textField("cperf_repairs","Final) Repairs performed"),
+        notesField("cperf_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_perf(){
+  if(usesSwi206()) return workflow_perf_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
