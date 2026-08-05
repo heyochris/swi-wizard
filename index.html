@@ -8494,7 +8494,77 @@ function workflow_mfd(){
   ];
 }
 
+/** SWI-206 Code 32 — Vertical Acceleration High (SWI-206 pages 283-289) */
+function workflow_32_206(){
+  const n = modelNumber(selectedModel());
+  const isSk1 = n === 1;
+  return [
+    {
+      title:"SWI-206 Code 32 – Background",
+      pdfPage:283,
+      instruction:"BACKGROUND: This fault triggers when the IMU detects vertical motion above +3g or below -1g, to secure the Seakeeper and alert the operator. Vertical acceleration is never anticipated to reach the alarm threshold; proper installation location should preclude a high vertical acceleration event even on smaller craft. In service, the alarm is usually due to water intrusion, loose mounting bolts, loose electrical panels, or loose IMU mounting. Anything creating abnormal 'vertical' motion or vibration into/on the IMU may be at fault (e.g., severe sea conditions, running fixed directly into the seas). An internal IMU fault is also possible — in most service cases, the IMU is replaced. REFERENCES: Applicable Seakeeper Service Drawings (Dealer Access), Applicable Installation Manual (Mechanical Installation section).",
+      fields:[choiceField("c32_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c32_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 32 – IMU Connector & Water Intrusion Check",
+      pdfPage:284,
+      instruction:"1) DISCONNECT wire harness connector at IMU. 2) INSPECT IMU connector for loose pins or crimps. 3) IF loose wires/crimps found, REPAIR IMU connector. 4) IF IMU found loose, FASTEN IMU securely. 5) IF water intrusion found, INSPECT other connectors (GCM 70-pin connector and MDB harness connector) for water. 6) IF water intrusion found, REPLACE wire harness.",
+      fields:[
+        choiceField("c32_imu_connector_ok","2) IMU connector free of loose pins/crimps",["YES","NO"]),
+        Object.assign(choiceField("c32_imu_connector_repaired","3) IMU connector repaired",["YES","NO","N/A"]), { condition:() => responses.c32_imu_connector_ok === "NO" }),
+        choiceField("c32_imu_loose","4) IMU found loose",["YES","NO"]),
+        choiceField("c32_water_intrusion","5) Water intrusion found at other connectors",["YES","NO"]),
+        Object.assign(choiceField("c32_harness_replaced_water","6) Wire harness replaced (water intrusion)",["YES","NO","N/A"]), { condition:() => responses.c32_water_intrusion === "YES" }),
+        notesField("c32_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 32 – Torque Check & Sea Trial",
+      pdfPage:285,
+      instruction:"7) ENSURE torque specifications are met on Seakeeper mounting bolts AND cylinder braces (per Torque Specifications). 8) CYCLE low current DC power to Seakeeper. 9) PERFORM sea trial to ensure alarm does not return.",
+      fields:[
+        choiceField("c32_torque_verified","7) Mounting bolts/cylinder braces torqued to spec",["YES","NO"]),
+        choiceField("c32_power_cycled","8) Low current DC power cycled",["YES","NO"]),
+        choiceField("c32_seatrial_result","9) Sea trial performed — alarm returned?",["ALARM DID NOT RETURN","ALARM RETURNED","N/A"]),
+        notesField("c32_s3_notes","Notes")
+      ]
+    },
+    {
+      title: isSk1 ? "SWI-206 Code 32 – Harness Resistance Checks (Seakeeper 1)" : "SWI-206 Code 32 – Harness Resistance Checks (Seakeeper 4/4.5/10/14)",
+      pdfPage: isSk1 ? 288 : 286,
+      condition:() => responses.c32_seatrial_result === "ALARM RETURNED" || responses.c32_seatrial_result === "N/A",
+      instruction: isSk1 ?
+        "10) CHECK resistances of wire harness (Seakeeper 1 has no power relay): a) DISCONNECT IMU and GCM from wire harness. b) TEST AND RECORD: i) resistance below 0.3 Ω from IMU pin 12 to Main Power Relay pin 30. ii) resistance below 0.3 Ω from IMU pin 1 to Low Current DC Input pin 2. iii) resistance below 0.3 Ω from IMU pin 10 to GCM pin 36. iv) resistance below 0.3 Ω from IMU pin 3 to GCM pin 53. v) IF any test UNSATISFACTORY: CONFIRM wires/crimps of associated connectors secure, then REPAIR/REPLACE wire harness. NOTE: Disconnecting IMU and GCM will produce alarms at display/MFD app." :
+        "10) CHECK resistances of wire harness: a) DISCONNECT IMU, power relay, and GCM from wire harness. b) TEST AND RECORD: i) resistance below 0.3 Ω from IMU pin 12 to power relay pin 30. ii) resistance below 0.3 Ω from IMU pin 1 to Low Current DC input connector pin 2. iii) resistance below 0.3 Ω from IMU pin 3 to GCM 70-pin connector pin 53. iv) resistance below 0.3 Ω from IMU pin 10 to GCM 70-pin connector pin 36. v) IF any test UNSATISFACTORY: VERIFY wires/crimps of GCM connector secure, then REPAIR/REPLACE wire harness. NOTE: Manipulate harness to recreate slight movement in event an open is not seen when cable is stationary. Disconnecting IMU, power relay, and GCM will produce alarms at display/MFD app.",
+      fields:[
+        numberField("c32_r_pin12_relay30","i) IMU pin 12 → relay pin 30 resistance (Ω, spec <0.3)"),
+        numberField("c32_r_pin1_dc2","ii) IMU pin 1 → Low Current DC pin 2 resistance (Ω, spec <0.3)"),
+        numberField("c32_r_pin10_gcm36","iii/iv) IMU pin 10 → GCM pin 36 resistance (Ω, spec <0.3)"),
+        numberField("c32_r_pin3_gcm53","iii/iv) IMU pin 3 → GCM pin 53 resistance (Ω, spec <0.3)"),
+        choiceField("c32_harness_replaced_resistance","v) Wire harness repaired/replaced (unsatisfactory resistance)",["YES","NO","N/A"]),
+        notesField("c32_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 32 – IMU Replacement & Escalation",
+      pdfPage:289,
+      instruction:"11) IF alarm persists AND IMU was not replaced previously, REPLACE IMU. 12) IF alarm does not clear: a) RECORD all resistances taken during troubleshooting and photo of information screen. b) SUBMIT all data to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("c32_imu_replaced","11) IMU replaced",["YES","NO","N/A"]),
+        choiceField("c32_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c32_support_contacted","12b) Product Support contacted with data",["YES","NO","N/A"]), { condition:() => responses.c32_final_alarm_clear === "NO" }),
+        choiceField("c32_seatrial_final","Final) Sea trial performed",["YES","NO","N/A"]),
+        choiceField("c32_photo","Final) Information-screen photo attached",["YES","NO"]),
+        textField("c32_parts","Final) Parts replaced"),
+        textField("c32_case","Final) Support case number / instructions"),
+        notesField("c32_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_32(){
+  if(usesSwi206()) return workflow_32_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
