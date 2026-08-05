@@ -4742,7 +4742,65 @@ function workflow_6_104_155_157(triggerCode){
   ];
 }
 
-function workflow_8_9(){
+/** SWI-206 Codes 8/58 (pages 53-57) — Coolant Pump 1 Fault / Glycol Pump
+ *  Malfunction. Rewritten from real SWI-206 text — the SWI-106 procedure this
+ *  used to alias references entirely different models (Seakeeper 2/3/5/6/35/40),
+ *  wrong pin numbers, and SWI-107 instead of SWI-207. Note: Code 9 does not
+ *  exist on SWI-206 at all (blocked separately in modelSupportsRestrictedCode). */
+function workflow_8_58_206(triggerCode){
+  const is58 = triggerCode === "58";
+  return [
+    {
+      title:"SWI-206 Code 8/58 – Background & Initial Prep",
+      pdfPage:53,
+      instruction:"BACKGROUND: Code 8 (Coolant Pump 1 Fault) triggers when glycol pump current draw is below 0.25A, indicating a bad connection, faulty pump motor, or lack of coolant — it clears once current rises back above 0.25A. NOTE: a low DC input voltage can also trigger Code 8 alongside Code 41 (DC Input Voltage Low); IF both are present, troubleshoot Code 41 first. Code 58 (Glycol Pump Malfunction) uses the through-flow temperature sensor (installed on late-generation models larger than Seakeeper 4.5) plus the MDB thermistor, and triggers on a combination of conditions (7°C/min differential rise between drive and glycol sensor within 10 minutes, no seawater cooling required, power within 500W of last calculated power, no major bearing-load change, and glycol pump required at speed/unlocked). Sensor diagnostic note: an OPEN-LOOP thermistor circuit will display 50°C; a SHORTED thermistor will display 85°C. PROCEDURE PREP — WARNING: personnel pinch hazard, Seakeeper may start remotely: 1) TURN OFF the AC or high-current DC breaker; ENSURE flywheel at zero RPM. 2) INSPECT electrical connections secure (glycol pump connector, GCM 70-pin connector). 3) CHECK glycol level near max fill (Seakeeper 1–10: ~½in/12.7mm from reservoir top; Seakeeper 14: between min/max lines) — fill per SWI-207 if low. 4) ACTIVATE glycol override. 5) VERIFY the glycol pump is running by touch or noise.",
+      fields:[
+        Object.assign(choiceField("c8_code41_present","Code 41 (DC Input Voltage Low) also present",["YES","NO"]), { condition:() => !is58 }),
+        choiceField("c8_connections_secure","2) Glycol pump connector + GCM 70-pin connector secure",["YES","NO"]),
+        choiceField("c8_glycol_level_ok","3) Glycol level near max fill (topped off per SWI-207 if low)",["YES","NO"]),
+        choiceField("c8_pump_running","5) Glycol pump running by touch/noise",["YES","NO"]),
+        notesField("c8_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 8/58 – Voltage & Harness Checks (If Pump Not Running)",
+      pdfPage:55,
+      condition:() => responses.c8_pump_running === "NO",
+      instruction:"a) At DC INPUT, VERIFY voltage (12VDC models: 11.0–14.0 VDC; 24VDC models: 22.0–28.0 VDC). b) ENSURE glycol override still activated. c) With a multimeter and back-probes, VERIFY DC voltage at the glycol pump connector is within 0.3V of the DC INPUT voltage. d) IF no/low voltage is present: i. IF the DC input voltage itself is unsatisfactory, troubleshoot the vessel's electrical system. ii. IF a DC model, TEST for 0.3Ω or less between pin 1 of the glycol connector and the low DC Input Power positive pin 1 (red wire). iii. IF Seakeeper 4 or above (Control Power Relay installed), TEST for 0.3Ω or less between pin 30 of the Power Relay and pin 1 of the glycol pump harness connector. iv. TEST for 0.3Ω or less between pin 2 and the corresponding GCM pin 15. v. ENSURE Open Loop (no short) between pins 1 and 2 of the glycol pump connector. vi. IF high resistance was found in i–iv: inspect connectors for loose wires/crimps, repair, and retest — REPLACE the wire harness if resistance remains above 0.3Ω. vii. IF step v shows a short between pins 1–2, REPLACE the wire harness. viii. RECHECK for voltage at the glycol pump. ix. IF still no voltage after harness repair/replacement, REPLACE the GCM. x. IF all checks in this step are satisfactory, REPLACE the glycol pump (Seakeeper 1: P/N 40635; Seakeeper 4 & 4.5: P/N 40434; Seakeeper 10 & 14: P/N 40435).",
+      fields:[
+        numberField("c8_dc_input_v","a) DC INPUT voltage (VDC)"),
+        choiceField("c8_dc_input_ok","a) Within spec (12V: 11–14VDC / 24V: 22–28VDC)",["YES","NO"]),
+        numberField("c8_pump_connector_v","c) Voltage at glycol pump connector (VDC)"),
+        choiceField("c8_pump_v_within_03","c) Within 0.3V of DC INPUT voltage",["YES","NO"]),
+        numberField("c8_r_dc_pin1","d.ii/iii) Resistance: glycol pin 1 to low DC input pin 1 (DC models) OR Power Relay pin 30 (Seakeeper 4+) (Ω, spec ≤0.3Ω)"),
+        numberField("c8_r_gcm15","d.iv) Resistance: glycol pin 2 to GCM pin 15 (Ω, spec ≤0.3Ω)"),
+        choiceField("c8_open_loop","d.v) Open loop confirmed between glycol connector pins 1–2 (no short)",["YES","NO"]),
+        choiceField("c8_harness_replaced","d.vi/vii) Wire harness replaced",["YES","NO","N/A"]),
+        choiceField("c8_gcm_replaced","d.ix) GCM replaced (no voltage after harness repair)",["YES","NO","N/A"]),
+        choiceField("c8_pump_replaced","d.x) Glycol pump replaced (all checks satisfactory)",["YES","NO","N/A"]),
+        notesField("c8_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 8/58 – Flow Verification & Completion",
+      pdfPage:57,
+      instruction:"7) IF the glycol pump was replaced, FILL the cooling system with glycol mixture per SWI-207. 8) IF Code 58 and the pump IS running, ENSURE flow through the glycol loop: deactivate override, disconnect the coolant hose at the heat exchanger inlet barb, direct it into a bucket/bag, momentarily activate the glycol pump to confirm flow — IF no flow is observed, troubleshoot the glycol flow path for an obstruction; reattach the hose and refill the reservoir when done. 9) DEACTIVATE all overrides. 10) IF Code 58 persists, DETERMINE whether unintended seawater flow exists per SWI-139 – Seawater Flow Verification. 11) VERIFY all alarms clear. 12) IF the alarm persists, CONTACT Seakeeper Product Support with all test results and photos.",
+      fields:[
+        Object.assign(choiceField("c8_flow_verified","8) Flow through glycol loop verified (Code 58, pump running)",["YES","NO","N/A"]), { condition:() => is58 }),
+        Object.assign(choiceField("c8_obstruction_found","8e) Obstruction found in glycol flow path",["YES","NO","N/A"]), { condition:() => is58 }),
+        Object.assign(choiceField("c8_seawater_flow_checked","10) Unintended seawater flow checked per SWI-139 (if Code 58 persists)",["YES","NO","N/A"]), { condition:() => is58 }),
+        choiceField("c8_final_clear","11) Alarm clear",["YES","NO"]),
+        textField("c8_parts","Final) Parts replaced"),
+        textField("c8_repairs","Final) Repairs performed"),
+        textField("c8_case","Final) Support case number / instructions"),
+        notesField("c8_final","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
+function workflow_8_9(triggerCode){
+  if(usesSwi206() && (triggerCode === "8" || triggerCode === "58")) return workflow_8_58_206(triggerCode);
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2-3",
@@ -6781,8 +6839,8 @@ function buildStepsRaw(code){
   if(code === "104") return workflow_6_104_155_157(code);
   if(code === "155") return workflow_6_104_155_157(code);
   if(code === "157") return workflow_6_104_155_157(code);
-  if(code === "8" || code === "58") return workflow_8_9();
-  if(code === "9") return workflow_8_9();
+  if(code === "8" || code === "58") return workflow_8_9(code);
+  if(code === "9") return workflow_8_9(code);
   if(code === "15") return workflow_15();
   if(code === "16" || code === "57") return workflow_16();
   if(code === "73") return workflow_73_74();
