@@ -1,2 +1,4 @@
 ﻿Techs: open this link, then Add to Home Screen (Safari Share menu on iPhone, Chrome menu on Galaxy).
+https://heyochris.github.io/swi-wizard/
+
 After that first visit, the SWI Wizard icon works fully offline - no internet needed again.
