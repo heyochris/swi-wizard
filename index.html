@@ -7346,7 +7346,144 @@ function workflow_98(){
   ];
 }
 
+/** SWI-206 Code 99-102 — Motor Fault-Overcurrent / Drive DSPPF Fault / Drive Pulsing Error / Drive OP Circuit (SWI-206 pages 196-209) */
+function workflow_99_102_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const is1 = n === 1;
+  const isAC = !is1 && !(n === 4 && !/4\.5/.test(String(model || "")));
+  return [
+    {
+      title:"SWI-206 Code 99-102 – Background",
+      pdfPage:196,
+      instruction:"CODES: Motor Fault-Overcurrent (99), Drive DSPPF* Fault (100), Drive Pulsing Error (101), Drive OP (Output) Circuit (102). *Digital Signal Processor Power Frame. BACKGROUND: Code 99 is a generic MDB alarm — a short in the motor drive cable or an MDB fault. Code 100 alarms on motor overcurrent sensed by the DSP of the flywheel motor controller. Code 101 concerns the drive's internal circuitry developing DC voltage pulses to mimic AC power (pulse width modulation) — issue could be in power drive cables, harness, or connections. Code 102 often follows Codes 99/100; can occur from shorting causing the drive's output stage to shut down, or open motor leads (not inserted, broken wire, damaged motor). All four cut power to the flywheel motor and lock the brakes; the condition must clear before reset. Motor drive cables are shielded on AC-powered models — wires can short to the shield/ground. REFERENCES: SWI-093 – Molex Harness Connector, SWI-124 – Seakeeper Motor Lead Testing, SF-90683 – Pre-FRB Swap Checklist.",
+      fields:[choiceField("c99_102_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c99_102_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 1: Initial Checks",
+      pdfPage:198,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) PERFORM this procedure in its entirety (multiple failures may cause a single code); RECORD results of inspections/tests. 2) TURN OFF all Seakeeper power breakers. 3) VERIFY wire harness connector at Motor Drive fully inserted. 4) VERIFY motor terminal leads securely attached. 5) VISUALLY INSPECT length of motor cable (MDB connection to enclosure feed-through) for fraying, burning, or insulation breakdown along foundation, guide band, and enclosure to feed-through. b) IF damage found, PHOTOGRAPH and SUBMIT to Seakeeper Product Support. 6) IF AC-powered Seakeeper, CONTINUE to Section 2. 7) IF DC-powered Seakeeper, CONTINUE to Section 3.",
+      fields:[
+        choiceField("c99_102_connector_inserted","3) Wire harness connector at Motor Drive fully inserted",["YES","NO"]),
+        choiceField("c99_102_terminals_secure","4) Motor terminal leads securely attached",["YES","NO"]),
+        choiceField("c99_102_cable_ok","5) Motor cable inspected, no fraying/burning/breakdown",["YES","NO"]),
+        Object.assign(choiceField("c99_102_support_damage","5b) Product Support notified (damage found)",["YES","NO","N/A"]), { condition:() => responses.c99_102_cable_ok === "NO" }),
+        notesField("c99_102_s2_notes","Notes")
+      ]
+    },
+    {
+      title: isAC ? "SWI-206 Code 99-102 – Section 2: AC-Powered Models – Molex Connector" : "SWI-206 Code 99-102 – Section 2: AC-Powered Models (informational)",
+      pdfPage:200,
+      condition:() => isAC,
+      instruction:"SECTION 2 (Seakeeper 4.5/10/14): 1) With power deenergized, PERFORM checks on Molex connector: a) DISCONNECT MDB Molex connector. b) INSPECT connector for loose wires/crimps. c) IF loose wires/crimps found, REPAIR connector per SWI-093 (CONTACT Product Support for assistance). d) IF wiring damaged/abraded, REPLACE wire harness. 2) TURN ON DC control power breaker to Seakeeper.",
+      fields:[
+        choiceField("c99_102_ac_molex_ok","1b) Molex connector wires/crimps OK",["YES","NO"]),
+        Object.assign(choiceField("c99_102_ac_harness_replaced","1d) Wire harness replaced (damaged/abraded)",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_molex_ok === "NO" }),
+        notesField("c99_102_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 2: AC-Powered Models – Voltage & Relay Test",
+      pdfPage:201,
+      condition:() => isAC,
+      instruction:"NOTE: Intermittent opens may not be seen without manipulating the harness. 3) With multimeter on DC Volts, TEST harness MDB connector for 12/24 VDC between pin 1 and pin 7. 4) IF voltage NOT 12/24 VDC, TEST DC input for proper voltage: a) IF input voltage satisfactory, REPLACE main power relay, REPEAT Step 3; IF still unsatisfactory, REPLACE wire harness. b) IF no/improper voltage present, TROUBLESHOOT vessel electrical system. 5) TURN OFF DC control power breaker. 6) DISCONNECT GCM 70-pin connector.",
+      fields:[
+        numberField("c99_102_ac_v_1_7","3) Voltage MDB pin 1 to pin 7 (VDC, spec 12/24)"),
+        Object.assign(choiceField("c99_102_ac_relay_replaced","4a) Main power relay replaced",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_v_1_7 !== "" }),
+        Object.assign(choiceField("c99_102_ac_harness_replaced_relay","4a.iii) Wire harness replaced (still unsatisfactory)",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_relay_replaced === "YES" }),
+        notesField("c99_102_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 2: AC-Powered Models – Motor Cable & Resistance",
+      pdfPage:202,
+      condition:() => isAC,
+      instruction:"WARNING: Shock hazard exists when flywheel rotating. 11) REMOVE MDB cover. 12) VERIFY crimps of each motor cable lead securely fastened, good contact in terminal. 13) LOOSEN MDB feed-through grommet. 14) EXAMINE motor drive cable insulation from grommet to terminals; DOCUMENT any damage. 7) With multimeter in Resistance mode, CONFIRM no short (no resistance <1MΩ) between Molex pin 7 and pins 1, 5, 11, 12. 8) IF resistance <1MΩ detected, REPLACE wire harness. 9) ENSURE flywheel at zero RPM. 10) TURN OFF AC and DC breakers to Seakeeper.",
+      fields:[
+        choiceField("c99_102_ac_crimps_ok","12) Motor cable lead crimps secure, good contact",["YES","NO"]),
+        choiceField("c99_102_ac_grommet_ok","14) Motor drive cable insulation OK (grommet to terminals)",["YES","NO"]),
+        numberField("c99_102_ac_r_7_1","7) Resistance Molex pin 7 to pin 1 (MΩ, spec >1MΩ)"),
+        numberField("c99_102_ac_r_7_5","7) Resistance Molex pin 7 to pin 5 (MΩ, spec >1MΩ)"),
+        numberField("c99_102_ac_r_7_11","7) Resistance Molex pin 7 to pin 11 (MΩ, spec >1MΩ)"),
+        numberField("c99_102_ac_r_7_12","7) Resistance Molex pin 7 to pin 12 (MΩ, spec >1MΩ)"),
+        Object.assign(choiceField("c99_102_ac_harness_replaced_r","8) Wire harness replaced (short found)",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_r_7_1 !== "" }),
+        notesField("c99_102_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 2: AC-Powered Models – Motor Lead & 400V DC Testing",
+      pdfPage:203,
+      condition:() => isAC,
+      instruction:"15) ENSURE interior of MDB free of moisture. 16) PERFORM motor lead testing per SWI-124. 17) DOCUMENT any physical damage with photograph. 18) IF motor drive cable phase-to-phase resistance >2.0Ω, any phase 0.5Ω higher than other two, or QUESTIONABLE megohm results, SUBMIT SF-90683 with all data recorded, THEN PROCEED to Section 4. 19) RE-ATTACH all motor cable leads. 20) TURN ON AC and DC power. 21) TEST voltage at 400V DC terminal; a) IF NOT between 390-400 VDC, REPLACE MDB. 22) INSTALL MDB cover. 23) TORQUE ten M4 screws to 19 in-lbs (2.2Nm). 24) IF issue persists, CONTINUE to Section 4.",
+      fields:[
+        choiceField("c99_102_ac_motor_lead_result","16) Motor lead testing per SWI-124 satisfactory",["YES","NO"]),
+        numberField("c99_102_ac_v_400dc","21) 400V DC terminal voltage (VDC, spec 390–400)"),
+        Object.assign(choiceField("c99_102_ac_sf90683","18) SF-90683 submitted",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_motor_lead_result === "NO" }),
+        Object.assign(choiceField("c99_102_ac_mdb_replaced","21a) MDB replaced",["YES","NO","N/A"]), { condition:() => responses.c99_102_ac_v_400dc !== "" }),
+        choiceField("c99_102_ac_issue_persists","24) Issue persists after Section 2",["YES","NO"]),
+        notesField("c99_102_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 3: DC-Powered Models – Seakeeper 1 Redirect",
+      pdfPage:204,
+      condition:() => !isAC && is1,
+      instruction:"SECTION 3, Step 1: IF Seakeeper 1, PERFORM troubleshooting per Code 4/119/126/127/155/170 instead (Curtis motor controller / encoder faults). This code's remaining DC steps below apply to Seakeeper 4 only.",
+      fields:[
+        choiceField("c99_102_sk1_redirected","Redirected to Code 4/119/126/127/155/170 workflow",["YES","NO"]),
+        notesField("c99_102_s7_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 3: Seakeeper 4 – Voltage & Relay Test",
+      pdfPage:204,
+      condition:() => !isAC && !is1,
+      instruction:"SECTION 3 (Seakeeper 4): WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 2) ENSURE flywheel at zero RPM at MFD app/display. 3) TURN OFF high current DC breaker to Seakeeper. 4) REMOVE cover at motor drive and battery input terminals with T15 Torx bit. 5) INSPECT for corrosion, heat damage, loose/damaged wires or crimps. 6) DISCONNECT motor drive cable leads and motor frame green ground cable from MDB. 7) ELECTRICALLY ISOLATE motor drive cable leads and ground cable. 8) ENSURE DC control power aligned to Seakeeper. 9) With multimeter in DC Volts, TEST for 12 VDC (10.0-15.0 VDC) at DC control power input; a) IF not in range, TROUBLESHOOT vessel electrical supply. b) RECONNECT DC control power. 10) TEST for 12 VDC (10.0-15.0 VDC) between sockets 1 and 8 of MDB connector. 11) IF voltage between pins 1/8 NOT 10.0-15.0 VDC AND input voltage satisfactory: a) TEST main power relay (disconnect from harness, check 0.3Ω or less between pin 30/87A, measure resistance pin 85/86 ~88Ω); IF unsatisfactory, REPLACE power relay. b) IF power relay satisfactory, REPLACE wire harness.",
+      fields:[
+        choiceField("c99_102_sk4_corrosion","5) Corrosion / heat damage / loose wires found",["YES","NO"]),
+        numberField("c99_102_sk4_v_input","9) DC control power input voltage (VDC, spec 10.0–15.0)"),
+        numberField("c99_102_sk4_v_1_8","10) Voltage MDB connector pin 1 to pin 8 (VDC, spec 10.0–15.0)"),
+        Object.assign(choiceField("c99_102_sk4_relay_ok","11a) Main power relay checks satisfactory",["YES","NO","N/A"]), { condition:() => responses.c99_102_sk4_v_1_8 !== "" }),
+        Object.assign(choiceField("c99_102_sk4_relay_replaced","11a) Power relay replaced",["YES","NO","N/A"]), { condition:() => responses.c99_102_sk4_relay_ok === "NO" }),
+        Object.assign(choiceField("c99_102_sk4_harness_replaced","11b) Wire harness replaced (relay satisfactory)",["YES","NO","N/A"]), { condition:() => responses.c99_102_sk4_relay_ok === "YES" }),
+        notesField("c99_102_s8_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 3: Seakeeper 4 – Resistance & Motor Lead Testing",
+      pdfPage:206,
+      condition:() => !isAC && !is1,
+      instruction:"NOTE: Intermittent opens may not be seen without manipulating harness. 12) With multimeter in resistance mode, VERIFY no short (<1MΩ) between motor drive connector pin 2 and pins 1, 5, 6. 13) IF resistance <1MΩ found, REPLACE wire harness. 14) PERFORM motor lead testing per SWI-124. 15) DOCUMENT any visible damage with photograph. 16) IF phase-to-phase resistance >2.0Ω, any phase 0.5Ω higher than other two, or QUESTIONABLE megohm results: a) COMPLETE SF-90683 as much as possible. b) SUBMIT form/data to Seakeeper Product Support. 17) RE-ATTACH all motor cable leads. 18) TORQUE terminal leads per Torque Specifications. 19) RE-ATTACH cover at motor drive cable/High DC current input terminals. 20) ENERGIZE all power. 21) IF issue persists, CONTINUE to Section 4.",
+      fields:[
+        numberField("c99_102_sk4_r_2_1","12) Resistance motor drive connector pin 2 to pin 1 (MΩ, spec >1MΩ)"),
+        numberField("c99_102_sk4_r_2_5","12) Resistance pin 2 to pin 5 (MΩ, spec >1MΩ)"),
+        numberField("c99_102_sk4_r_2_6","12) Resistance pin 2 to pin 6 (MΩ, spec >1MΩ)"),
+        Object.assign(choiceField("c99_102_sk4_harness_replaced_2","13) Wire harness replaced (short found)",["YES","NO","N/A"]), { condition:() => responses.c99_102_sk4_r_2_1 !== "" }),
+        choiceField("c99_102_sk4_motor_lead_result","14) Motor lead testing per SWI-124 satisfactory",["YES","NO"]),
+        Object.assign(choiceField("c99_102_sk4_sf90683","16b) SF-90683 submitted",["YES","NO","N/A"]), { condition:() => responses.c99_102_sk4_motor_lead_result === "NO" }),
+        choiceField("c99_102_sk4_issue_persists","21) Issue persists after Section 3",["YES","NO"]),
+        notesField("c99_102_s9_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 99-102 – Section 4: Completion of Troubleshooting",
+      pdfPage:208,
+      instruction:"1) IF no damage found in wire harness, motor drive cable, or connectors: a) COMPLETE SF-90683 – Pre-FRB Swap Checklist as much as possible. b) RECORD one-minute video of display attempting to spool Seakeeper (show service screen RPM/Current). c) RECORD one-minute video within one yard (1m) of Seakeeper at start of spool up with minimal background noise. d) SUBMIT all test results, data, and recordings to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) for review.",
+      fields:[
+        choiceField("c99_102_no_damage_found","1) No damage found in harness/cable/connectors",["YES","NO"]),
+        Object.assign(choiceField("c99_102_sf90683_final","1a) SF-90683 completed",["YES","NO","N/A"]), { condition:() => responses.c99_102_no_damage_found === "YES" }),
+        choiceField("c99_102_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        textField("c99_102_case","Final) Support case number / instructions"),
+        textField("c99_102_parts","Final) Parts replaced"),
+        textField("c99_102_repairs","Final) Repairs performed"),
+        notesField("c99_102_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_99_100_101_102(){
+  if(usesSwi206()) return workflow_99_102_206();
   return [
     {
       title:"SWI-106 SECTION 1: INITIAL CHECKS • Steps 2-3-4",
@@ -7476,7 +7613,96 @@ function workflow_99_100_101_102(){
   ];
 }
 
+/** SWI-206 Code 103 — Drive Sensorless [Start Fault] (SWI-206 pages 211-217) */
+function workflow_103_206(){
+  const model = selectedModel();
+  const n = modelNumber(model);
+  const is4 = n === 4 && !/4\.5/.test(String(model || ""));
+  const isAC = !(n === 1) && !is4;
+  return [
+    {
+      title:"SWI-206 Code 103 – Background",
+      pdfPage:211,
+      instruction:"BACKGROUND: Reported to the GCM by the MDB when an internal fault signal is generated in the speed-sensing circuitry. \"Sensorless\" means Seakeeper MDBs do not use a Hall Sensor to detect motor speed but use a \"Back EMF\" characteristic in the motor supply cable. When this circuit senses an issue, it stops the Seakeeper to prevent damage. In the few cases seen, the fault has been in enclosure internal components or its vacuum. Closely examine alarm history (preceding/later codes) — other associated codes have always been recorded. RECORD all readings via photos/notes for Product Support. REFERENCES: SWI-094 – Seakeeper Motor Drive Replacement, SWI-124 – Seakeeper Motor Lead Testing, SF-90683 – Pre-FRB Swap Checklist.",
+      fields:[choiceField("c103_ack_background","Background reviewed / acknowledged",["YES","NO"]), notesField("c103_s1_notes","Notes")]
+    },
+    {
+      title:"SWI-206 Code 103 – Section 1: Initial Checks",
+      pdfPage:212,
+      instruction:"WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) PERFORM this procedure in its entirety (multiple failures may cause a single code); RECORD all inspection/test results. 2) ENSURE flywheel at zero RPM at MFD app/display. 3) TURN OFF all breakers to Seakeeper. 4) VERIFY MDB connector securely fastened. 5) ENSURE no visible damage to wire harness near MDB. 6) IF damage found, ORDER wire harness, CONTINUE troubleshooting. 7) THOROUGHLY INSPECT length of motor cable (MDB connection to enclosure feed-through) for fraying, burning, or insulation breakdown along foundation, guide band, and enclosure to feed-through. b) IF damage found, SUBMIT photo to Seakeeper Product Support. 8) IF AC-powered models, CONTINUE to Section 2. 9) IF Seakeeper 4, CONTINUE to Section 3.",
+      fields:[
+        choiceField("c103_mdb_connector_secure","4) MDB connector securely fastened",["YES","NO"]),
+        choiceField("c103_harness_damage","5) Visible damage to wire harness near MDB",["YES","NO"]),
+        Object.assign(choiceField("c103_harness_ordered","6) Wire harness ordered",["YES","NO","N/A"]), { condition:() => responses.c103_harness_damage === "YES" }),
+        choiceField("c103_cable_ok","7) Motor cable inspected, no fraying/burning/breakdown",["YES","NO"]),
+        Object.assign(choiceField("c103_support_photo","7b) Photo submitted to Product Support",["YES","NO","N/A"]), { condition:() => responses.c103_cable_ok === "NO" }),
+        notesField("c103_s2_notes","Notes")
+      ]
+    },
+    {
+      title: isAC ? "SWI-206 Code 103 – Section 2: AC-Powered Models – Motor Lead Testing" : "SWI-206 Code 103 – Section 2: AC-Powered Models (informational)",
+      pdfPage:213,
+      condition:() => isAC,
+      instruction:"SECTION 2 (Seakeeper 4.5/10/14): WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) ENSURE AC power breaker to Seakeeper OFF. 2) REMOVE MDB cover to expose MOTOR lead connections. 3) INSPECT crimps at end of each motor cable lead securely fastened in terminal with orange tabs down and locked. 4) PERFORM motor lead testing per SWI-124. 5) IF motor drive cable phase-to-phase resistance >2.0Ω, any phase 0.5Ω different from other two, or QUESTIONABLE megohm results, SUBMIT SF-90683 with all data and motor cable sheathing type to Seakeeper Product Support. 6) RE-ATTACH all motor cable leads. 7) TURN ON all breakers to Seakeeper.",
+      fields:[
+        choiceField("c103_ac_crimps_ok","3) Motor cable lead crimps secure, tabs down/locked",["YES","NO"]),
+        choiceField("c103_ac_motor_lead_result","4) Motor lead testing per SWI-124 satisfactory",["YES","NO"]),
+        Object.assign(choiceField("c103_ac_sf90683","5) SF-90683 submitted",["YES","NO","N/A"]), { condition:() => responses.c103_ac_motor_lead_result === "NO" }),
+        notesField("c103_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 103 – Section 2: AC-Powered Models – 400V DC Test & Completion",
+      pdfPage:214,
+      condition:() => isAC,
+      instruction:"8) TEST voltage at 400V DC terminal. a) IF NOT between 390-400 VDC, REPLACE MDB per SWI-094. 9) DOCUMENT any visible damage with a photograph. 10) INSTALL MDB cover. 11) TORQUE ten M4 Phillips head screws to 19 in-lbs (2.2Nm). 12) IF issue persists, CONTINUE to Section 4.",
+      fields:[
+        numberField("c103_ac_v_400dc","8) 400V DC terminal voltage (VDC, spec 390–400)"),
+        Object.assign(choiceField("c103_ac_mdb_replaced","8a) MDB replaced",["YES","NO","N/A"]), { condition:() => responses.c103_ac_v_400dc !== "" }),
+        choiceField("c103_ac_issue_persists","12) Issue persists after Section 2",["YES","NO"]),
+        notesField("c103_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 103 – Section 3: DC-Powered Models (Seakeeper 4) – Motor Lead Testing",
+      pdfPage:215,
+      condition:() => !isAC,
+      instruction:"SECTION 3 (Seakeeper 4): DC-powered models use a much lower voltage (48 VDC nominal vs. 400 VDC AC-powered) and it is impractical to measure with a voltmeter; this check is omitted for Seakeeper 4. WARNING: Personnel shock hazard exists when working on live circuitry; Seakeeper may start remotely. 1) PLACE Seakeeper in safe condition: a) ENSURE flywheel at zero RPM. b) TURN OFF all power breakers. 2) REMOVE cover at motor drive terminals and High DC current input terminals with T15 Torx bit. 3) INSPECT for corrosion or heat damage at terminals/cables. 4) PERFORM motor lead testing per SWI-124. 5) DOCUMENT any visible damage with a photograph.",
+      fields:[
+        choiceField("c103_dc_corrosion","3) Corrosion / heat damage found at terminals/cables",["YES","NO"]),
+        choiceField("c103_dc_motor_lead_result","4) Motor lead testing per SWI-124 satisfactory",["YES","NO"]),
+        notesField("c103_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 103 – Section 3: DC-Powered Models – Completion",
+      pdfPage:216,
+      condition:() => !isAC,
+      instruction:"6) IF motor drive cable phase-to-phase resistance >2.0Ω, any phase 0.5Ω higher than other two, or QUESTIONABLE megohm results, SUBMIT all data to Seakeeper Product Support. 7) RE-ATTACH all motor cable leads. 8) TORQUE terminal leads per Torque Specifications section. 9) INSTALL cover at motor drive cable terminals and High DC current input terminals. 10) TURN ON all power breakers. 11) IF issue persists, CONTINUE to Section 4.",
+      fields:[
+        Object.assign(choiceField("c103_dc_support_contacted","6) Product Support contacted (unsatisfactory results)",["YES","NO","N/A"]), { condition:() => responses.c103_dc_motor_lead_result === "NO" }),
+        choiceField("c103_dc_issue_persists","11) Issue persists after Section 3",["YES","NO"]),
+        notesField("c103_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 103 – Section 4: Completion of Troubleshooting",
+      pdfPage:217,
+      instruction:"1) IF no damage found in wire harness, motor drive cable, or connectors: a) RECORD one-minute video of display attempting to spool Seakeeper (show service screen RPM/Current). b) RECORD one-minute video within one yard (1m) of Seakeeper at start of spool up with minimal background noise. c) SUBMIT all test results data and recordings to Seakeeper Product Support Team at support@seakeeper.com (emeasupport@seakeeper.com) for review.",
+      fields:[
+        choiceField("c103_no_damage_found","1) No damage found in harness/cable/connectors",["YES","NO"]),
+        choiceField("c103_final_alarm_clear","Final) Alarm clear",["YES","NO"]),
+        textField("c103_case","Final) Support case number / instructions"),
+        textField("c103_parts","Final) Parts replaced"),
+        textField("c103_repairs","Final) Repairs performed"),
+        notesField("c103_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_103(){
+  if(usesSwi206()) return workflow_103_206();
   return [
     {
       title:"SWI-106 SECTION 1: INITIAL CHECKS • Steps 1-2-3",
