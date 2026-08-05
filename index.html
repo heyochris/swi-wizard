@@ -5152,7 +5152,165 @@ function workflow_105_161_162(){
   ];
 }
 
+/** SWI-206 Code 35/251 (pages 97-108) — Display Fault / No Connection to Gyro.
+ *  Rewritten from real SWI-206 text: CANbus wiring/component testing with
+ *  Seakeeper 1-specific GCM pin numbers (step 7c.ii.7.b) and model-specific
+ *  MDB/Curtis CANbus resistance pins (step 7.e.i). */
+function workflow_35_251_206(){
+  const n = modelNumber(selectedModel());
+  const is1 = n === 1;
+  return [
+    {
+      title:"SWI-206 Code 35/251 – Background & Initial Checks",
+      pdfPage:97,
+      instruction:"BACKGROUND: The \"Display Fault\" alarm (Code 35) may appear on an MFD app / 5\" display whenever the GCM has lost communication with an installed 5\" display; reset requires communications restored for 1 full minute. The Seakeeper runs normally ~30 seconds after the alarm activates, then spools down and locks the brake. The \"No Connection to Gyro\" alarm (Code 251) is similar and is caused by a loss of all CANbus communication (an OPEN or a SHORT in the wiring) — a short has even produced Code 75 (IMU Fault) in addition to Code 251. Code 251 is most likely due to connection issues or failure of the T-Adapter, Terminator (resistor), the short CAN cable between the T-Adapter and ConnectBox, or a damaged ConnectBox port — do NOT assume the ethernet/MFD adapter cable is at fault. 1) IF the vessel experienced a lightning strike or electrical surge just before the alarm AND other electrical appliances were affected, CONTACT Seakeeper Product Support. 2) IF display software was recently updated, CYCLE low-current DC input to the Seakeeper.",
+      fields:[
+        choiceField("c35_lightning","1) Lightning/surge event with other appliances affected",["YES","NO"]),
+        Object.assign(choiceField("c35_support_contacted_1","1a) Seakeeper Product Support contacted",["YES","NO","N/A"]), { condition:() => responses.c35_lightning === "YES" }),
+        choiceField("c35_software_updated","2) Display software recently updated",["YES","NO"]),
+        Object.assign(choiceField("c35_power_cycled","2a) Low-current DC input cycled",["YES","NO","N/A"]), { condition:() => responses.c35_software_updated === "YES" }),
+        choiceField("c35_clear_after_s2","After Steps 1-2, alarm clear",["YES","NO"]),
+        notesField("c35_s1_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 35/251 – Spare Display Substitution Test",
+      pdfPage:99,
+      condition:() => responses.c35_clear_after_s2 !== "YES",
+      instruction:"3) IF a spare 5\" display or ConnectBox of the same design is available, CONNECT the spare user interface in place of the installed device. IF the alarm clears AND all data populates on the Information screen, REPLACE the installed display/ConnectBox. 4) INSPECT all CANbus cable connections: VERIFY the CANbus cable from the Seakeeper is correctly threaded into the T-Adapter, the terminator is correctly threaded into the T-Adapter (of a second display, or the only display), and the display cable is threaded correctly into the T-Adapter. IF the helm display is a 5\" display showing color blocks, UPDATE the display software.",
+      fields:[
+        choiceField("c35_spare_available","3) Spare display/ConnectBox of same design available",["YES","NO"]),
+        Object.assign(choiceField("c35_spare_clears","3a) Alarm clears with spare AND all Information screen data populated",["YES","NO","N/A"]), { condition:() => responses.c35_spare_available === "YES" }),
+        Object.assign(choiceField("c35_display_replaced","3a) Installed display/ConnectBox replaced",["YES","NO","N/A"]), { condition:() => responses.c35_spare_clears === "YES" }),
+        choiceField("c35_canbus_threaded","4a.i) CANbus cable correctly threaded into T-Adapter",["YES","NO"]),
+        choiceField("c35_terminator_threaded","4a.i.2) Terminator correctly threaded into T-Adapter",["YES","NO"]),
+        choiceField("c35_display_cable_threaded","4a.i.3) Display cable threaded correctly into T-Adapter",["YES","NO"]),
+        choiceField("c35_color_blocks","4a.i.4) Helm 5\" display shows color blocks",["YES","NO"]),
+        Object.assign(choiceField("c35_software_updated_2","Display software updated (color blocks found)",["YES","NO","N/A"]), { condition:() => responses.c35_color_blocks === "YES" }),
+        choiceField("c35_clear_after_s4","5) Alarm clear after Step 4 checks",["YES","NO"]),
+        notesField("c35_s2_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 35/251 – Seakeeper-Side CAN Cable Voltage/Resistance Test",
+      pdfPage:102,
+      condition:() => responses.c35_clear_after_s4 !== "YES",
+      instruction:"6) At the Seakeeper unit, on the CAN cable of the harness: a) VERIFY 12VDC exists between pins 2 and 3. b) TURN OFF the low-current DC breaker. c) VERIFY NO short exists between pin 1 and all other pins. d) VERIFY resistance >1000Ω between pin 5 and pin 2, and between pin 5 and pin 3. e) VERIFY resistance >1000Ω between pin 4 and pin 2, and between pin 4 and pin 3.",
+      fields:[
+        numberField("c35_v_2_3","6a) Voltage: pins 2-3 of Seakeeper CAN cable (VDC, spec 12VDC)"),
+        choiceField("c35_breaker_off","6b) Low-current DC breaker turned OFF",["YES","NO"]),
+        choiceField("c35_short_pin1","6c) Short found: pin 1 to any other pin",["YES","NO"]),
+        numberField("c35_r_5_2","6d) Resistance: pin 5 to pin 2 (Ω, spec >1000Ω)"),
+        numberField("c35_r_5_3","6d) Resistance: pin 5 to pin 3 (Ω, spec >1000Ω)"),
+        numberField("c35_r_4_2","6e) Resistance: pin 4 to pin 2 (Ω, spec >1000Ω)"),
+        numberField("c35_r_4_3","6e) Resistance: pin 4 to pin 3 (Ω, spec >1000Ω)"),
+        notesField("c35_s3_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 35/251 – Helm-Side CAN Cable Test",
+      pdfPage:103,
+      condition:() => responses.c35_clear_after_s4 !== "YES",
+      instruction:"6b) At the helm station, on the display cable from Seakeeper to the helm display end connector: VERIFY 12/24VDC between pins 2 and 3 at the display end. VERIFY high resistance (NO short) between pin 1 and all other pins. VERIFY resistance >1000Ω between pin 5/pin 2 and pin 5/pin 3, and pin 4/pin 2 and pin 4/pin 3. VERIFY resistance of 120Ω between pin 4 and pin 5 (no terminating resistor attached) OR 60Ω (terminating resistor attached). IF ANY check in Step 6 is UNSATISFACTORY, REPLACE the wire harness (Seakeeper-side) or the CAN cable from Seakeeper to helm (helm-side). IF SATISFACTORY, CONNECT the display cable and proceed — if Code 35 persists, proceed to Step 8 (GCM inspection). Also INSPECT the GCM 70-pin connector for loose pins or crimps.",
+      fields:[
+        numberField("c35_helm_v_2_3","6b.i) Voltage: pins 2-3 at helm display end (VDC, spec 12/24VDC)"),
+        choiceField("c35_helm_short_pin1","6b.ii) Short found: pin 1 to any other pin at helm end",["YES","NO"]),
+        numberField("c35_helm_r_4_5","6b.vii/viii) Resistance: pin 4 to pin 5 at helm end (Ω, spec 120Ω no terminator / 60Ω with terminator)"),
+        choiceField("c35_s6_satisfactory","6a/6b) All Step 6 checks satisfactory",["YES","NO"]),
+        Object.assign(choiceField("c35_harness_replaced_6","Wire harness / CAN cable replaced (Step 6 unsatisfactory)",["YES","NO","N/A"]), { condition:() => responses.c35_s6_satisfactory === "NO" }),
+        choiceField("c35_gcm_70pin_insp","GCM 70-pin connector inspected for loose pins/crimps",["YES","NO"]),
+        Object.assign(choiceField("c35_gcm_harness_repaired","Wire harness repaired/replaced (loose pins/crimps found)",["YES","NO","N/A"]), { condition:() => responses.c35_gcm_70pin_insp === "YES" }),
+        choiceField("c35_code35_clear_after_s6","IF Code 35: alarm persists after Step 6/8",["CLEARED","PERSISTS","N/A - CODE 251"]),
+        notesField("c35_s4_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 251 – IMU/MDB CANbus Isolation Test",
+      pdfPage:104,
+      condition:() => responses.c35_code35_clear_after_s6 !== "CLEARED",
+      instruction:"7) FOR CODE 251: a) ENSURE the low-current DC breaker is turned ON. b) DISCONNECT IMU and MDB from the wire harness (see Code 5, Attachment 2 for accessing Seakeeper 1 components). c) CHECK active alarms on the display: IF Code 251 clears (Code 75 and 82 alarms are expected as a side effect), proceed to Step 7.d (IMU test). IF Code 251 remains, DISCONNECT the GCM 70-pin connector and inspect it for loose pins/crimps, then inspect the GCM itself for damaged/bent pins — straighten or replace the GCM as needed.",
+      fields:[
+        choiceField("c35_dc_breaker_on","7a) Low-current DC breaker ON",["YES","NO"]),
+        choiceField("c35_imu_mdb_disconnected","7b) IMU and MDB disconnected from wire harness",["YES","NO"]),
+        choiceField("c35_251_clears_disconnect","7c.i) Code 251 cleared by disconnecting IMU/MDB (Code 75 & 82 expected)",["YES","NO"]),
+        Object.assign(choiceField("c35_70pin_disconnected","7c.ii.1) GCM 70-pin connector disconnected/inspected",["YES","NO","N/A"]), { condition:() => responses.c35_251_clears_disconnect === "NO" }),
+        Object.assign(choiceField("c35_70pin_loose","7c.ii.3) Loose pins/crimps found in 70-pin connector",["YES","NO","N/A"]), { condition:() => responses.c35_251_clears_disconnect === "NO" }),
+        Object.assign(choiceField("c35_gcm_bent_pins","7c.ii.5) Bent pins found on GCM",["YES","NO","N/A"]), { condition:() => responses.c35_251_clears_disconnect === "NO" }),
+        Object.assign(choiceField("c35_gcm_action","7c.ii.5) GCM pins straightened OR GCM replaced",["STRAIGHTENED","REPLACED","N/A"]), { condition:() => responses.c35_gcm_bent_pins === "YES" }),
+        notesField("c35_s5_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 251 – GCM 70-Pin Voltage Test",
+      pdfPage:105,
+      condition:() => responses.c35_251_clears_disconnect === "NO",
+      instruction:"7c.ii.6-8) ENSURE the low-current DC power breaker is ON. With a multimeter in DC Volts mode, CHECK for 12 or 24VDC between the following pins of the GCM 70-pin connector: a) Pin 38 and Pin 69, and Pin 38 and Pin 70. b) [SEAKEEPER 1 ONLY] Pin 67 and Pin 69, and Pin 67 and Pin 70. c) Pin 68 and Pin 69, and Pin 68 and Pin 70. IF no voltage is seen in any check, REPLACE the wire harness. TURN OFF the low-current DC power breaker and RECONNECT the GCM 70-pin connector before continuing.",
+      fields:[
+        numberField("c35_v_38_69","a) Voltage: pin 38 to pin 69 (VDC, spec 12/24VDC)"),
+        numberField("c35_v_38_70","a) Voltage: pin 38 to pin 70 (VDC, spec 12/24VDC)"),
+        Object.assign(numberField("c35_v_67_69","b) [Seakeeper 1 only] Voltage: pin 67 to pin 69 (VDC)"), { condition:() => is1 }),
+        Object.assign(numberField("c35_v_67_70","b) [Seakeeper 1 only] Voltage: pin 67 to pin 70 (VDC)"), { condition:() => is1 }),
+        numberField("c35_v_68_69","c) Voltage: pin 68 to pin 69 (VDC, spec 12/24VDC)"),
+        numberField("c35_v_68_70","c) Voltage: pin 68 to pin 70 (VDC, spec 12/24VDC)"),
+        choiceField("c35_gcm_v_ok","All GCM 70-pin voltage checks show voltage present",["YES","NO"]),
+        Object.assign(choiceField("c35_gcm_harness_replaced_7","Wire harness replaced (no voltage found)",["YES","NO","N/A"]), { condition:() => responses.c35_gcm_v_ok === "NO" }),
+        choiceField("c35_70pin_reconnected","GCM 70-pin connector reconnected",["YES","NO"]),
+        notesField("c35_s6_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 251 – IMU Test",
+      pdfPage:105,
+      condition:() => responses.c35_251_clears_disconnect === "NO",
+      instruction:"d) At the IMU: i) ENSURE the low-current DC power breaker is OFF. ii) In the harness IMU connector, CHECK for 60Ω resistance between CANbus pins 3 and 10. iii) IF resistance is higher or shows an open loop, REPLACE the wire harness. iv) RECONNECT the IMU connector. v) TURN ON the low-current DC power breaker. vi) IF Code 251 remains clear (Code 82 is expected), proceed to the MDB test. vii) IF Code 251 returns (Code 82 expected), INSPECT the 12-pin connector for loose pins/crimps, then inspect the IMU itself for damaged/bent pins — if no loose or damaged pins are found, REPLACE the IMU; if loose pins/crimps are found, REPAIR the pin(s) or REPLACE the wire harness.",
+      fields:[
+        numberField("c35_imu_r_3_10","ii) Resistance: CANbus pins 3-10 at IMU connector (Ω, spec 60Ω)"),
+        choiceField("c35_imu_r_ok","ii) Resistance within spec (not higher / not open loop)",["YES","NO"]),
+        Object.assign(choiceField("c35_imu_harness_replaced","iii) Wire harness replaced",["YES","NO","N/A"]), { condition:() => responses.c35_imu_r_ok === "NO" }),
+        choiceField("c35_251_after_imu","vi/vii) Code 251 status after reconnecting IMU",["CLEAR","RETURNS"]),
+        Object.assign(choiceField("c35_12pin_insp","vii.1) 12-pin connector inspected for loose pins/crimps",["YES","NO","N/A"]), { condition:() => responses.c35_251_after_imu === "RETURNS" }),
+        Object.assign(choiceField("c35_imu_pins_damaged","vii.2) IMU pins damaged or bent",["YES","NO","N/A"]), { condition:() => responses.c35_251_after_imu === "RETURNS" }),
+        Object.assign(choiceField("c35_imu_action","vii.3/4) IMU replaced OR pin repaired/harness replaced",["IMU REPLACED","PIN REPAIRED/HARNESS REPLACED","N/A"]), { condition:() => responses.c35_251_after_imu === "RETURNS" }),
+        notesField("c35_s7_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 251 – MDB / Curtis Drive Test",
+      pdfPage:107,
+      condition:() => responses.c35_251_clears_disconnect === "NO" && responses.c35_251_after_imu !== "CLEAR",
+      instruction:"e) At the MDB (motor drive): i) In the motor drive connector, CHECK for 60Ω resistance in the CANbus: for Seakeeper 1, between pins 13 and 20 (check integrity of the white jumper wire); for Seakeeper 4, between pins 5 and 6; for AC-powered Seakeepers, between pins 11 and 12. ii) IF resistance is higher or open loop, REPLACE the wire harness. iii) CONNECT the IMU connector to the IMU. iv) IF Code 251 returns, INSPECT the MDB/Curtis connector for loose pins or crimps (pull test on wires) and inspect MDB pins for damage/bending. IF connector pin(s) are loose, REPAIR the connector or REPLACE the wire harness. IF motor drive pins are irreparable or unsatisfactory, REPLACE the motor drive.",
+      fields:[
+        numberField("c35_mdb_resistance","i) CANbus resistance at motor drive connector (Ω, spec 60Ω)"),
+        textField("c35_mdb_pins_used","i) Pins checked (Seakeeper 1: 13-20 / Seakeeper 4: 5-6 / AC Seakeeper: 11-12)"),
+        choiceField("c35_mdb_r_ok","i) Resistance within spec (not higher / not open loop)",["YES","NO"]),
+        Object.assign(choiceField("c35_mdb_harness_replaced","ii) Wire harness replaced",["YES","NO","N/A"]), { condition:() => responses.c35_mdb_r_ok === "NO" }),
+        choiceField("c35_imu_reconnected","iii) IMU connector reconnected to IMU",["YES","NO"]),
+        choiceField("c35_251_after_mdb","iv) Code 251 returns after MDB reconnect",["YES","NO"]),
+        Object.assign(choiceField("c35_mdb_connector_insp","iv.1/2) MDB/Curtis connector & pins inspected (loose/damaged)",["YES","NO","N/A"]), { condition:() => responses.c35_251_after_mdb === "YES" }),
+        Object.assign(choiceField("c35_mdb_action","iv.3/4) Connector repaired/harness replaced OR motor drive replaced",["CONNECTOR/HARNESS","MOTOR DRIVE REPLACED","N/A"]), { condition:() => responses.c35_251_after_mdb === "YES" }),
+        notesField("c35_s8_notes","Notes")
+      ]
+    },
+    {
+      title:"SWI-206 Code 35/251 – Completion",
+      pdfPage:108,
+      instruction:"8) IF checks of Steps 6 and 7 are all satisfactory AND no spare display was available, REPLACE the display. 9) RESTORE all power to the Seakeeper. 10) IF the alarm persists, COMPILE all data recorded and a photo of the information screen, and SUBMIT a summary of all steps taken plus any photos to Seakeeper Product Support at support@seakeeper.com (or emeasupport@seakeeper.com).",
+      fields:[
+        choiceField("c35_display_replaced_final","8) Display replaced (Steps 6-7 satisfactory, no spare available)",["YES","NO","N/A"]),
+        choiceField("c35_power_restored","9) All power restored to Seakeeper",["YES","NO"]),
+        choiceField("c35_final_clear","Final) Alarm clear",["YES","NO"]),
+        Object.assign(choiceField("c35_support_contacted_final","10) Seakeeper Product Support contacted (alarm persists)",["YES","NO","N/A"]), { condition:() => responses.c35_final_clear === "NO" }),
+        textField("c35_case","10) Support case number / instructions"),
+        textField("c35_parts","Final) Parts replaced"),
+        textField("c35_repairs","Final) Repairs performed"),
+        notesField("c35_final_notes","Final) Technician notes")
+      ]
+    }
+  ];
+}
+
 function workflow_35_251(){
+  if(usesSwi206()) return workflow_35_251_206();
   return [
     {
       title:"SWI-106 Procedure • Steps 1-2",
