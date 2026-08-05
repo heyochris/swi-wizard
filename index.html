@@ -646,6 +646,32 @@
     color:var(--dark);
     font-size:16px;
   }
+  .swi-loading{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    color:#fff;
+    font-weight:600;
+    font-size:14px;
+    letter-spacing:.02em;
+    background:rgba(30,34,38,.55);
+    pointer-events:none;
+    z-index:5;
+  }
+  .swi-loading.hidden{display:none}
+  .swi-loading::before{
+    content:"";
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    border:2px solid rgba(255,255,255,.35);
+    border-top-color:#fff;
+    animation:swiSpin .8s linear infinite;
+  }
+  @keyframes swiSpin{ to{ transform:rotate(360deg); } }
   .swi-open-card{
     text-align:center;
     padding:28px 16px;
@@ -1136,6 +1162,7 @@ try{ document.getElementById("jsOffBanner").style.display = "none"; }catch(e){}
             <p>Keep this HTML, the <b>pdfjs</b> folder, and all PDF files together. On iPhone: make the folder Available Offline, then open the HTML from the <b>Files</b> app (not OneDrive preview).</p>
           </div>
         </div>
+        <div id="swiLoading" class="swi-loading hidden">Loading PDF…</div>
         <iframe id="swiPdfFrame" title="unused" class="hidden"></iframe>
       </div>
     </div>
@@ -2009,25 +2036,37 @@ async function loadPdfJsDocument(){
   return pdfjsDoc;
 }
 
+function showSwiLoading(){
+  const loading = el("swiLoading");
+  if(loading) loading.classList.remove("hidden");
+}
+function hideSwiLoading(){
+  const loading = el("swiLoading");
+  if(loading) loading.classList.add("hidden");
+}
+
 async function renderCleanPdfPage(pageNumber, opts){
   const canvas = el("swiCanvas");
   const fallback = el("swiFallback");
   const frame = el("swiPdfFrame");
   if(!canvas) return false;
   if(preferNativePdf()){
-    return showNativePdf(pageNumber);
+    const ok = showNativePdf(pageNumber);
+    hideSwiLoading();
+    return ok;
   }
+  showSwiLoading();
   const keepScroll = !!(opts && opts.keepScroll);
   if(!keepScroll) swiZoomMultiplier = 1;
   const token = ++pdfjsRenderToken;
   try{
     hideNativePdf();
     const doc = await loadPdfJsDocument();
-    if(token !== pdfjsRenderToken) return true;
+    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
     const maxPage = doc.numPages || 1;
     const pageNo = Math.min(Math.max(1, pageNumber || 1), maxPage);
     const page = await doc.getPage(pageNo);
-    if(token !== pdfjsRenderToken) return true;
+    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
 
     const baseViewport = page.getViewport({ scale: 1 });
     const scroller = el("swiScroller");
@@ -2059,7 +2098,7 @@ async function renderCleanPdfPage(pageNumber, opts){
       viewport: viewport,
       intent: "display"
     }).promise;
-    if(token !== pdfjsRenderToken) return true;
+    if(token !== pdfjsRenderToken){ hideSwiLoading(); return true; }
 
     canvas.classList.remove("hidden");
     if(fallback) fallback.classList.add("hidden");
@@ -2073,9 +2112,11 @@ async function renderCleanPdfPage(pageNumber, opts){
     swiCurrentPage = pageNo;
     const label = el("swiPageLabel");
     if(label) label.textContent = "Page " + pageNo + " / " + maxPage;
+    hideSwiLoading();
     return true;
   }catch(err){
     console.error(err);
+    hideSwiLoading();
     // Offline / file:// fallback: open PDF in the device viewer (no server)
     try{
       if(showNativePdf(pageNumber)) return true;
