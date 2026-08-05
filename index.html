@@ -1771,7 +1771,11 @@ function showNativePdf(pageNumber){
     try{
       if(frame.getAttribute("data-src") !== src){
         frame.setAttribute("data-src", src);
-        frame.src = src;
+        // A src change that differs only by #fragment is often treated as an
+        // in-page hash navigation, so the PDF plugin never re-jumps pages.
+        // Force a hard reload (blank first) so every page change is a real navigation.
+        frame.src = "about:blank";
+        setTimeout(function(){ frame.src = src; }, 0);
       }
     }catch(e){
       try{ frame.src = src; }catch(e2){}
