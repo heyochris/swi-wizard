@@ -1688,6 +1688,11 @@ var activeCode = null;
 var activeCodeTitle = "";
 /** setup | wizard | report — used so Back-to-setup still resumes */
 var uiScreen = "setup";
+var pdfjsDoc = null;
+var pdfjsDocKey = "";
+var pdfjsRenderToken = 0;
+var swiPdfNavTimer = null;
+var swiManualNav = false;
 
 const SWI_PAGE_MAP = {
   "12":{start:4,end:20,title:"CODE 12/13/14 - Low brake pressure alarms",blurb:"1. CHECK hydraulic pressure in Seakeeper brake system as follows: a. TURN OFF high current DC/AC power breaker to Seakeeper. b. ENSURE Seakeeper flywheel at zero RPM at display/MFD app. c. ACTIVATE Brake Override. d. INSTALL Seakeeper pressure gauge (P/N 12830) or brake charge ho"},
@@ -1940,6 +1945,826 @@ window.setMobileView = setMobileView;
 window.showDocs = function(){ return setMobileView("swi"); };
 window.showWizard = function(){ return setMobileView("wizard"); };
 window.setActiveSwiDoc = setActiveSwiDoc;
+
+function parseDocStepNumber(docId, text){
+  const s = stripAlarmCodeNoise(text);
+  if(docId === "SWI-108A"){
+    let m = s.match(/108A\s*Steps?\s+(\d{1,3})(?:\s*[–-]\s*(\d{1,3}))?/i);
+    if(m) return m[2] || m[1]; // prefer end of range for "Steps 7–9"
+    m = s.match(/108A\s+(\d{1,3})([A-Z])?/i);
+    if(m) return m[1] + (m[2] ? m[2].toUpperCase() : "");
+    m = s.match(/\b(\d{1,3})([A-Z])?\)/);
+    if(m) return m[1];
+    return "1";
+  }
+  if(docId === "SWI-108"){
+    let m = s.match(/SWI-108(?!A)[^\d]{0,20}Steps?\s+(\d{1,3})/i);
+    if(m) return m[1];
+    m = s.match(/\bSteps?\s+(\d{1,3})\b/i);
+    if(m) return m[1];
+    return "1";
+  }
+  if(docId === "SWI-103"){
+    let m = s.match(/SWI-103[^\d]{0,40}Steps?\s+(\d{1,3})/i);
+    if(m) return m[1];
+    return "1";
+  }
+  if(docId === "SWI-111"){
+    let m = s.match(/SWI-111[^\d]{0,40}Steps?\s+(\d{1,3})/i);
+    if(m) return m[1];
+    return "1";
+  }
+  if(docId === "SWI-118"){
+    if(/PVMO/i.test(s)) return "PVMO";
+    if(/RE-?PROGRAM(?:MING)?\s+(?:the\s+)?GCM|PROGRAM(?:MING)?\s+GCM\s+using/i.test(s)) return "PROGRAM";
+    if(/UPDATE\b.{0,40}software|software\s+update|achieved through the Seakeeper Service Tool/i.test(s)) return "UPDATE";
+    if(/data\s*log|logg(?:er|ing)|CAN\s*data/i.test(s)) return "LOGGER";
+    return "1";
+  }
+  if(docId === "SWI-124"){
+    try{
+      const model = selectedModel();
+      const n = modelNumber(model);
+      const isAC = (n === 10 || n === 14 || /4\.5/.test(String(model || "")));
+      return isAC ? "AC1" : "DC1";
+    }catch(e){ return "1"; }
+  }
+  if(/^SWI-|^TB-/.test(docId) && docId !== "SWI-106"){
+    const esc = docId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let m = s.match(new RegExp(esc + "[^\\d]{0,40}Steps?\\s+(\\d{1,3})", "i"));
+    if(m) return m[1];
+    return "1";
+  }
+  if(docId === "TB-90615") return "1";
+  return parseSwiStepNumber(s);
+}
+
+function stepFieldProgress(){
+  try{
+    const fields = currentStepFields();
+    if(!fields || !fields.length) return 0;
+    let done = 0;
+    fields.forEach(f => { if(fieldHasAnswer(f)) done++; });
+    return Math.min(1, done / fields.length);
+  }catch(e){ return 0; }
+}
+
+function combinedStepProgress(stepIndex, stepCount){
+  const count = (typeof stepCount === "number" && stepCount > 0) ? stepCount : 1;
+  const idx = (typeof stepIndex === "number" && stepIndex >= 0) ? stepIndex : 0;
+  const fp = stepFieldProgress();
+  return Math.max(0, Math.min(1, (idx + fp) / count));
+}
+
+function estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount){
+  const base = baseGuideDocId();
+  if(docId === base){
+    if(entry){
+      const code = activeSwiCode();
+      const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
+      return (rich && rich.start) ? rich.start : (Number(entry.start) || 1);
+    }
+    return 1;
+  }
+  const rich = SECONDARY_SWI_MAPS[docId];
+  return (rich && rich.start) ? rich.start : 1;
+}
+
+function updateSwiDocChips(docId){
+  const wrap = document.getElementById("swiDocs");
+  if(!wrap) return;
+  const buttons = wrap.querySelectorAll("button[data-doc]");
+  for(let i=0;i<buttons.length;i++){
+    const b = buttons[i];
+    b.classList.toggle("active", b.getAttribute("data-doc") === docId);
+  }
+}
+
+function setActiveSwiDoc(docId, manual){
+  if(!SWI_DOC_FILES[docId]) docId = "SWI-106";
+  if(manual) swiDocManualLock = docId;
+  else swiDocManualLock = "";
+  activeSwiDocId = docId;
+  swiPdfUrl = SWI_DOC_FILES[docId];
+  swiPdfSource = "bundled";
+  pdfjsDoc = null;
+  pdfjsDocKey = "";
+  const canvas = el("swiCanvas");
+  if(canvas) delete canvas.dataset.loadedPage;
+  updateSwiDocChips(docId);
+  syncSwiPanel();
+}
+
+function estimatePageForStep(entry, stepTitle, stepIndex, stepCount){
+  if(!entry) return 1;
+  const code = activeSwiCode();
+  const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
+  const start = rich ? rich.start : entry.start;
+  const end = rich ? rich.end : entry.end;
+  const span = Math.max(end - start, 0);
+  const title = String(stepTitle || "");
+  const step = currentWizardStep();
+  const hay = title + " " + (step && step.instruction ? (typeof step.instruction === "function" ? "" : String(step.instruction)) : "");
+
+  if(step && step.pdfPage){
+    return Math.max(1, Number(step.pdfPage) || start);
+  }
+
+  const secKey = parseSwiSectionKey(title) || parseSwiSectionKey(hay);
+  if(rich && secKey && rich.sections && rich.sections[secKey]){
+    return rich.sections[secKey];
+  }
+
+  const stepNum = parseSwiStepNumber(title) || parseSwiStepNumber(hay);
+  if(rich && stepNum && rich.steps && rich.steps[stepNum]){
+    return rich.steps[stepNum];
+  }
+
+  let offset = 0;
+  if(/Section 1B|1B\b|Accumulator/i.test(title)) offset = Math.min(4, span);
+  else if(/Section 2|2A|2B|2C|2D|2E|Checking Coil|Pressure Switch/i.test(title)) offset = Math.min(Math.floor(span * 0.35), span);
+  else if(/Section 3|3A|3B|3C|Cylinder Issues|Harness/i.test(title)) offset = Math.min(Math.floor(span * 0.55), span);
+  else if(/Section 4|Angle Sensor Issues/i.test(title)) offset = Math.min(Math.floor(span * 0.65), span);
+  else if(/Section 5|Electrical Connection/i.test(title)) offset = Math.min(Math.floor(span * 0.75), span);
+  else if(/Section 6|Mounting/i.test(title)) offset = Math.min(Math.floor(span * 0.85), span);
+  else if(/Section 7|Other Issues|Completion|Final Documentation|Product Support/i.test(title)) offset = Math.min(Math.floor(span * 0.9), span);
+  else{
+    offset = Math.round(combinedStepProgress(stepIndex, stepCount) * span);
+  }
+  return start + offset;
+}
+
+function isFileProtocol(){
+  try{ return location.protocol === "file:"; }catch(e){ return false; }
+}
+
+function preferNativePdf(){
+  try{
+    if(isTouchUi && isTouchUi()) return true;
+  }catch(e){}
+  try{
+    const ua = navigator.userAgent || "";
+    if(/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+  }catch(e){}
+  return false;
+}
+
+function renderMobileDocLinks(){
+  const fallback = el("swiFallback");
+  const canvas = el("swiCanvas");
+  const frame = el("swiPdfFrame");
+  const wrap = document.querySelector(".swi-frame-wrap");
+  if(!fallback) return;
+  if(canvas) canvas.classList.add("hidden");
+  if(frame){
+    frame.classList.add("hidden");
+    try{ frame.removeAttribute("src"); }catch(e){}
+  }
+  if(wrap) wrap.classList.remove("native-pdf");
+  const model = (el("model") && el("model").value) || "";
+  const base = (typeof baseGuideDocId === "function") ? baseGuideDocId() : (usesSwi206(model) ? "SWI-206" : "SWI-106");
+  const files = (typeof SWI_DOC_FILES !== "undefined") ? SWI_DOC_FILES : {};
+  const labels = (typeof SWI_DOC_LABELS !== "undefined") ? SWI_DOC_LABELS : {};
+  const ids = Object.keys(files);
+  ids.sort(function(a,b){
+    if(a === base) return -1;
+    if(b === base) return 1;
+    return a.localeCompare(b);
+  });
+  let html = "<h3>Open reference PDF</h3>";
+  html += "<p>On iPhone, tap a guide below. It opens in the phone PDF viewer.</p>";
+  html += "<p><b>Active guide for this model:</b> " + (labels[base] || base) + "</p>";
+  for(let i=0;i<ids.length;i++){
+    const id = ids[i];
+    const href = files[id];
+    const lab = labels[id] || id;
+    html += "<p style='margin:10px 0'><a class='primary' style='display:block;text-align:center;text-decoration:none;padding:14px' href='" + href + "' target='_blank' rel='noopener'>" + lab + "</a></p>";
+  }
+  fallback.classList.remove("hidden");
+  fallback.innerHTML = html;
+  const scroller = el("swiScroller");
+  if(scroller) scroller.scrollTop = 0;
+}
+
+function recreateSwiFrame(){
+  const old = el("swiPdfFrame");
+  if(!old) return null;
+  const fresh = document.createElement("embed");
+  fresh.id = "swiPdfFrame";
+  fresh.type = "application/pdf";
+  fresh.title = "unused";
+  fresh.className = old.className;
+  old.parentNode.replaceChild(fresh, old);
+  return fresh;
+}
+
+function showNativePdf(pageNumber, force){
+  try{
+    if(preferNativePdf()){
+      renderMobileDocLinks();
+      const label = el("swiPageLabel");
+      if(label) label.textContent = "Tap a PDF below";
+      return true;
+    }
+  }catch(e){}
+  const canvas = el("swiCanvas");
+  const fallback = el("swiFallback");
+  const wrap = document.querySelector(".swi-frame-wrap");
+  const url = resolvePdfUrl();
+  if(!url) return false;
+  const page = Math.max(1, Number(pageNumber) || 1);
+  const base = String(url).split("#")[0];
+  const src = base + "#page=" + page;
+  if(wrap) wrap.classList.add("native-pdf");
+  if(canvas) canvas.classList.add("hidden");
+  if(fallback) fallback.classList.add("hidden");
+  const prior = el("swiPdfFrame");
+  const needsReload = force || !prior || prior.getAttribute("data-src") !== src;
+  if(needsReload){
+    const frame = recreateSwiFrame();
+    if(frame){
+      frame.setAttribute("data-src", src);
+      frame.classList.remove("hidden");
+      frame.src = src;
+    }
+  }else if(prior){
+    prior.classList.remove("hidden");
+  }
+  swiCurrentPage = page;
+  const label = el("swiPageLabel");
+  if(label) label.textContent = "p." + page;
+  return true;
+}
+
+function openCurrentPdfInNewTab(){
+  try{
+    const url = resolvePdfUrl();
+    const base = String(url).split("#")[0];
+    const src = base + "#page=" + swiCurrentPage;
+    window.open(src, "_blank");
+  }catch(e){}
+}
+
+function hideNativePdf(){
+  const wrap = document.querySelector(".swi-frame-wrap");
+  const frame = el("swiPdfFrame");
+  if(wrap) wrap.classList.remove("native-pdf");
+  if(frame){
+    frame.classList.add("hidden");
+  }
+}
+
+function pdfjsAvailable(){
+  return !!(window.pdfjsLib && pdfjsLib.getDocument);
+}
+
+function initPdfJsWorker(){
+  try{
+    if(window.pdfjsLib){
+      try{
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs/pdf.worker.min.js", window.location.href).href;
+      }catch(e){
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "pdfjs/pdf.worker.min.js";
+      }
+    }
+  }catch(e){}
+}
+
+function resolvePdfUrl(){
+  const name = swiPdfUrl || BUNDLED_SWI_PDF;
+  if(String(name).indexOf("blob:") === 0) return name;
+  try{ return new URL(name, window.location.href).href; }catch(e){ return name; }
+}
+
+function loadPdfBytes(url){
+  return new Promise(function(resolve, reject){
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.responseType = "arraybuffer";
+    xhr.onload = function(){
+      if(xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)){
+        resolve(new Uint8Array(xhr.response));
+      }else reject(new Error("PDF HTTP " + xhr.status));
+    };
+    xhr.onerror = function(){ reject(new Error("PDF XHR failed")); };
+    xhr.send();
+  });
+}
+
+async function loadPdfJsDocument(){
+  initPdfJsWorker();
+  if(!pdfjsAvailable()) throw new Error("pdf.js missing — keep pdfjs folder next to this HTML");
+  const url = resolvePdfUrl();
+  if(pdfjsDoc && pdfjsDocKey === url) return pdfjsDoc;
+  if(String(url).indexOf("blob:") === 0){
+    pdfjsDoc = await pdfjsLib.getDocument({ url: url, withCredentials: false }).promise;
+  }else{
+    const bytes = await loadPdfBytes(url);
+    pdfjsDoc = await pdfjsLib.getDocument({ data: bytes, withCredentials: false }).promise;
+  }
+  pdfjsDocKey = url;
+  return pdfjsDoc;
+}
+
+function showSwiLoading(){
+  const loading = el("swiLoading");
+  if(loading) loading.classList.remove("hidden");
+}
+
+function hideSwiLoading(){
+  const loading = el("swiLoading");
+  if(loading) loading.classList.add("hidden");
+}
+
+async function renderCleanPdfPage(pageNumber, force){
+  const canvas = el("swiCanvas");
+  const fallback = el("swiFallback");
+  const frame = el("swiPdfFrame");
+  if(!canvas) return false;
+  if(preferNativePdf()){
+    const ok = showNativePdf(pageNumber, !!force);
+    hideSwiLoading();
+    return ok;
+  }
+  showSwiLoading();
+  const token = ++pdfjsRenderToken;
+  try{
+    hideNativePdf();
+    const doc = await loadPdfJsDocument();
+    if(token !== pdfjsRenderToken) return true;
+    const maxPage = doc.numPages || 1;
+    const pageNo = Math.min(Math.max(1, pageNumber || 1), maxPage);
+    const page = await doc.getPage(pageNo);
+    if(token !== pdfjsRenderToken) return true;
+
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scroller = el("swiScroller");
+    const avail = Math.max(280, (scroller ? scroller.clientWidth : 700) - 20);
+    const cssScale = Math.max(1.0, Math.min(2.2, avail / baseViewport.width));
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const renderScale = cssScale * dpr;
+    const viewport = page.getViewport({ scale: renderScale });
+    const cssW = Math.floor(baseViewport.width * cssScale);
+    const cssH = Math.floor(baseViewport.height * cssScale);
+
+    canvas.width = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    const stage = el("swiPageStage");
+    if(stage){
+      stage.style.width = cssW + "px";
+    }
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport,
+      intent: "display"
+    }).promise;
+    if(token !== pdfjsRenderToken) return true;
+
+    canvas.classList.remove("hidden");
+    if(fallback) fallback.classList.add("hidden");
+    if(frame){ frame.classList.add("hidden"); try{ frame.src = "about:blank"; }catch(e){} }
+    if(scroller) scroller.scrollTop = 0;
+
+    swiCurrentPage = pageNo;
+    const label = el("swiPageLabel");
+    if(label) label.textContent = "Page " + pageNo + " / " + maxPage;
+    hideSwiLoading();
+    return true;
+  }catch(err){
+    console.error(err);
+    if(token === pdfjsRenderToken) hideSwiLoading();
+    try{
+      if(showNativePdf(pageNumber, !!force)) return true;
+    }catch(e2){}
+    if(fallback){
+      fallback.classList.remove("hidden");
+      const url = resolvePdfUrl();
+      fallback.innerHTML =
+        "<h3>PDF failed to open</h3>" +
+        "<p>Keep this HTML, the <b>pdfjs</b> folder, and all PDF files in the same folder.</p>" +
+        "<p><b>iPhone:</b> make the folder Available Offline, then open the HTML from the <b>Files</b> app (not OneDrive preview).</p>" +
+        (url ? ("<p><a href=\"" + escapeHtml(url) + "\" target=\"_blank\" rel=\"noopener\">Open current PDF</a></p>") : "") +
+        "<p class='note'>" + escapeHtml(String(err && err.message || err)) + "</p>";
+    }
+    return false;
+  }
+}
+
+function openSwiPdfPage(page, force){
+  const next = Math.max(1, Number(page) || 1);
+  const label = el("swiPageLabel");
+  if(label) label.textContent = "p." + next;
+  const canvas = el("swiCanvas");
+  const docKey = activeSwiDocId || "SWI-106";
+  if(!force && swiCurrentPage === next && canvas && canvas.dataset.loadedPage === String(next) && canvas.dataset.loadedDoc === docKey){
+    return;
+  }
+  swiCurrentPage = next;
+  if(swiPdfNavTimer) clearTimeout(swiPdfNavTimer);
+  swiPdfNavTimer = setTimeout(function(){
+    renderCleanPdfPage(next, !!force).then(function(ok){
+      const c = el("swiCanvas");
+      if(ok && c){
+        c.dataset.loadedPage = String(next);
+        c.dataset.loadedDoc = docKey;
+      }
+    });
+  }, 30);
+}
+
+function renderSwiFallback(entry, stepTitle){
+  const box = el("swiFallback");
+  if(!box) return;
+  if(!entry){
+    box.innerHTML = "<h3>Reference</h3><p>Select an active code to open the matching procedure pages. Load the PDF for diagrams and full steps.</p>";
+    return;
+  }
+  box.innerHTML =
+    "<h3>" + escapeHtml(entry.title) + "</h3>" +
+    "<p><b>PDF pages:</b> " + entry.start + " – " + entry.end + "</p>" +
+    "<p><b>Wizard step:</b> " + escapeHtml(stepTitle || "Setup") + "</p>" +
+    "<p>" + escapeHtml(entry.blurb || "") + "…</p>" +
+    "<p class='note'>Official procedure pages show in the viewer when the PDF is loaded. Use Prev/Next or Jump to step.</p>";
+}
+
+function syncSwiPanel(){
+  const code = activeSwiCode();
+  const entry = getSwiMapEntry(code);
+  const step = currentWizardStep();
+  let stepTitle = "";
+  try{
+    if(uiScreen === "wizard" && step){
+      stepTitle = step.title || "";
+    } else if(uiScreen === "setup"){
+      stepTitle = "Setup / code selection";
+    } else if(uiScreen === "report"){
+      stepTitle = "Jobber note / completion";
+    }
+  }catch(e){}
+
+  let docId = baseGuideDocId();
+  try{
+    if(uiScreen === "wizard") docId = detectActiveDoc(step, stepTitle);
+    else if(swiDocManualLock && SWI_DOC_FILES[swiDocManualLock]) docId = swiDocManualLock;
+    else docId = baseGuideDocId();
+  }catch(e){ docId = baseGuideDocId(); }
+  if(!SWI_DOC_FILES[docId]) docId = baseGuideDocId();
+
+  const docChanged = (docId !== activeSwiDocId);
+  const codeChanged = (code !== swiLastSyncedCode);
+
+  if(docChanged){
+    activeSwiDocId = docId;
+    swiPdfUrl = SWI_DOC_FILES[docId] || BUNDLED_SWI_PDF;
+    swiPdfSource = "bundled";
+    pdfjsDoc = null;
+    pdfjsDocKey = "";
+    const canvas = el("swiCanvas");
+    if(canvas){
+      delete canvas.dataset.loadedPage;
+      delete canvas.dataset.loadedDoc;
+    }
+  }else if(!swiPdfUrl || swiPdfSource === "bundled"){
+    swiPdfUrl = SWI_DOC_FILES[docId] || BUNDLED_SWI_PDF;
+  }
+  updateSwiDocChips(docId);
+
+  const meta = el("swiMeta");
+  let stepIndex = 0;
+  let stepCount = 1;
+  try{
+    if(uiScreen === "wizard"){
+      const vis = activeSteps();
+      stepCount = Math.max(vis.length, 1);
+      stepIndex = Math.min(Math.max(currentIndex, 0), stepCount - 1);
+    }
+  }catch(e){}
+
+  const shouldAutoJump = (uiScreen === "setup") || docChanged || codeChanged;
+  let page = swiCurrentPage || 1;
+  if(shouldAutoJump){
+    if(uiScreen === "setup"){
+      if(entry){
+        const rich = (SWI_STEP_PAGE_MAP && SWI_STEP_PAGE_MAP[code]) ? SWI_STEP_PAGE_MAP[code] : null;
+        page = (rich && rich.start) ? rich.start : entry.start;
+      }else page = 1;
+    }else{
+      page = estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount);
+    }
+  }
+  swiLastSyncedCode = code;
+
+  if(entry){
+    swiMappedStart = entry.start;
+    swiMappedEnd = entry.end;
+  }else{
+    swiMappedStart = 1;
+    swiMappedEnd = 1;
+  }
+
+  if(meta){
+    meta.innerHTML = (code ? ("<strong>Code " + escapeHtml(code) + "</strong> • ") : "") +
+      escapeHtml(SWI_DOC_LABELS[docId] || docId) +
+      " • p." + page +
+      (uiScreen === "wizard" && stepTitle ? "<br>Step: " + escapeHtml(stepTitle) : "");
+  }
+  renderSwiFallback(entry, stepTitle);
+  if(shouldAutoJump){
+    openSwiPdfPage(page, docChanged);
+  }
+}
+
+function jumpSwiToMappedPage(){
+  const code = activeSwiCode();
+  const entry = getSwiMapEntry(code);
+  const docId = activeSwiDocId || baseGuideDocId() || "SWI-106";
+  let stepTitle = "";
+  try{
+    if(uiScreen === "wizard"){
+      const step = currentWizardStep();
+      if(step) stepTitle = step.title || "";
+    }
+    if(!stepTitle){
+      const vis = activeSteps();
+      if(vis[currentIndex]) stepTitle = vis[currentIndex].title || "";
+    }
+  }catch(e){}
+  let stepIndex = 0, stepCount = 1;
+  try{ const vis = activeSteps(); stepCount = Math.max(vis.length,1); stepIndex = Math.min(Math.max(currentIndex,0), stepCount-1); }catch(e){}
+  let page = 1;
+  try{
+    const base = baseGuideDocId();
+    if(docId === base || docId === "SWI-106" || docId === "SWI-206"){
+      page = estimatePageForStep(entry, stepTitle, stepIndex, stepCount);
+    } else {
+      page = estimatePageForDoc(docId, entry, stepTitle, stepIndex, stepCount);
+    }
+  }catch(e){
+    page = (entry && entry.start) ? Number(entry.start) || 1 : 1;
+  }
+  openSwiPdfPage(page, true);
+}
+
+function swiPrevPage(){
+  openSwiPdfPage(Math.max(1, swiCurrentPage - 1));
+}
+
+function swiNextPage(){
+  openSwiPdfPage(swiCurrentPage + 1);
+}
+
+function onSwiPdfSelected(ev){
+  const file = ev.target && ev.target.files && ev.target.files[0];
+  if(!file) return;
+  if(swiPdfUrl && String(swiPdfUrl).indexOf("blob:") === 0){
+    try{ URL.revokeObjectURL(swiPdfUrl); }catch(e){}
+  }
+  swiPdfUrl = URL.createObjectURL(file);
+  swiPdfSource = "file";
+  pdfjsDoc = null;
+  pdfjsDocKey = "";
+  saveSwiPdfToIdb(file);
+  syncSwiPanel();
+}
+
+function idbReq(db, mode, fn){
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SWI_PDF_STORE, mode);
+    const store = tx.objectStore(SWI_PDF_STORE);
+    const req = fn(store);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function openSwiPdfDb(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(SWI_PDF_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if(!db.objectStoreNames.contains(SWI_PDF_STORE)) db.createObjectStore(SWI_PDF_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveSwiPdfToIdb(file){
+  try{
+    const db = await openSwiPdfDb();
+    await idbReq(db, "readwrite", store => store.put(file, "swi106"));
+    db.close();
+  }catch(e){ /* ignore */ }
+}
+
+async function restoreSwiPdfFromIdb(){
+  try{
+    const db = await openSwiPdfDb();
+    const file = await idbReq(db, "readonly", store => store.get("swi106"));
+    db.close();
+    if(!file) return false;
+    if(swiPdfUrl && String(swiPdfUrl).indexOf("blob:") === 0){
+      try{ URL.revokeObjectURL(swiPdfUrl); }catch(e){}
+    }
+    swiPdfUrl = URL.createObjectURL(file);
+    swiPdfSource = "idb";
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+function useBundledSwiPdf(){
+  const base = baseGuideDocId();
+  activeSwiDocId = base;
+  swiDocManualLock = "";
+  swiPdfUrl = SWI_DOC_FILES[base] || BUNDLED_SWI_PDF;
+  swiPdfSource = "bundled";
+  updateSwiDocChips(base);
+  const meta = document.getElementById("swiMeta");
+  if(meta){
+    meta.innerHTML = "<strong>" + escapeHtml(SWI_DOC_LABELS[base] || base) + "</strong><br>File: " + escapeHtml(swiPdfUrl || BUNDLED_SWI_PDF);
+  }
+  openSwiPdfPage(swiCurrentPage || 1);
+  syncSwiPanel();
+}
+
+function probeBundledSwiPdf(){
+  return new Promise(function(resolve){
+    try{
+      if(location.protocol === "file:"){
+        resolve(true);
+        return;
+      }
+      fetch(BUNDLED_SWI_PDF, { method: "HEAD", cache: "no-store" }).then(function(r){
+        resolve(!!(r && r.ok));
+      }).catch(function(){ resolve(false); });
+    }catch(e){
+      resolve(location.protocol === "file:");
+    }
+  });
+}
+
+async function initSwiPdf(){
+  try{
+    const hasBundled = await probeBundledSwiPdf();
+    if(hasBundled){
+      useBundledSwiPdf();
+      return;
+    }
+    const fromIdb = await restoreSwiPdfFromIdb();
+    if(fromIdb){
+      syncSwiPanel();
+      return;
+    }
+    syncSwiPanel();
+  }catch(e){
+    try{ useBundledSwiPdf(); }catch(err){ syncSwiPanel(); }
+  }
+}
+
+function showPackageBanner(msg){
+  const box = el("packageBanner");
+  if(!box) return;
+  box.innerHTML = msg;
+  box.classList.add("show");
+}
+
+async function checkPackageHealth(){
+  return;
+}
+
+function getSensorPin3GcmPin(model){
+  model = model || selectedModel();
+  const n = modelNumber(model);
+  if(usesSwi206(model)){
+    if(n === 1) return "DC Input Negative terminal (Seakeeper 1 has no GCM pin here)";
+    return "Pin 2";
+  }
+  if(n === 3 || n === 5 || n === 6) return "Pin 2";
+  if(n === 2 || (n !== null && n >= 9)) return "Pin 32";
+  return "";
+}
+
+function getPrecessionGuidance(model, serial, bumpStop){
+  model = model || selectedModel();
+  serial = (serial || selectedSerial() || "").trim();
+  const n = modelNumber(model);
+  const lines = [];
+
+  if(model === "Seakeeper 2"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±68°.");
+    lines.push("Maximum displayed angles should be within ±1.0° of ±68.0°.");
+  } else if(model === "Seakeeper 3"){
+    lines.push("SWI-106 serial rule: ±70° for S/N 3-0001 through 3-194-0960; ±60° for S/N 3-194-0961 and later.");
+    lines.push("SWI-108 serial rule: ±70° for S/N 3-0001 through 3-194-0957; ±60° for later serials.");
+    if(serial) lines.push(`Entered serial: ${serial}. Apply the matching row above.`);
+  } else if(model === "Seakeeper 5"){
+    lines.push("SWI-106: ±70° without bump stop; ±60° with bump stop.");
+    if(bumpStop === "YES") lines.push("Bump stop selected: use ±60°.");
+    else if(bumpStop === "NO") lines.push("No bump stop selected: use ±70°.");
+    else lines.push("Select whether this unit has a bump stop before judging Step 14.");
+  } else if(model === "Seakeeper 6"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±60°.");
+  } else if(model === "Seakeeper 9" || model === "Seakeeper 16" || model === "Seakeeper 18"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±70°.");
+  } else if(model === "Seakeeper 26"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±60°.");
+  } else if(model === "Seakeeper 30" || model === "Seakeeper 35" || model === "Seakeeper 40"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±70°.");
+  } else if(model === "M-Series"){
+    lines.push("Applicable precession range (SWI-106 / SWI-108): ±60°.");
+  } else {
+    lines.push("Refer to the applicable SWI-106 / SWI-108 precession table for this model.");
+  }
+
+  lines.push("SWI-106 also requires the two extremes (full forward and full aft) to be within 0.5° of each other, absolute value.");
+  return lines.join(" ");
+}
+
+function wireSwiPinchZoom(){
+  const stage = el("swiPageStage") || document.querySelector(".swi-frame-wrap");
+  if(!stage || stage.__pinchWired) return;
+  stage.__pinchWired = true;
+  let startDist = 0;
+  let startScale = 1;
+  let scale = 1;
+  function dist(touches){
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function applyScale(){
+    stage.style.transform = scale > 1 ? ("scale(" + scale + ")") : "";
+    stage.style.transformOrigin = "top center";
+  }
+  stage.addEventListener("touchstart", function(ev){
+    if(ev.touches && ev.touches.length === 2){
+      startDist = dist(ev.touches);
+      startScale = scale;
+    }
+  }, { passive: true });
+  stage.addEventListener("touchmove", function(ev){
+    if(ev.touches && ev.touches.length === 2 && startDist){
+      ev.preventDefault();
+      const ratio = dist(ev.touches) / startDist;
+      scale = Math.max(1, Math.min(3, startScale * ratio));
+      applyScale();
+    }
+  }, { passive: false });
+  stage.addEventListener("touchend", function(ev){
+    if(!ev.touches || ev.touches.length < 2) startDist = 0;
+  }, { passive: true });
+  stage.addEventListener("dblclick", function(){
+    scale = scale > 1 ? 1 : 2;
+    applyScale();
+  });
+}
+
+function currentStepFields(){
+  const visible = activeSteps();
+  const step = visible[currentIndex];
+  return step ? step.fields.filter(fieldIsVisible) : [];
+}
+
+function setBlockLocked(block, locked){
+  if(!block) return;
+  block.classList.toggle("field-locked", locked);
+  block.title = locked ? "Answer or skip the step above to unlock this one" : "";
+  const nodes = block.querySelectorAll("input, select, textarea, button.skip-btn, button.note-btn, button.photo-btn");
+  nodes.forEach(node => {
+    if(locked){
+      if(node.dataset.lockPrevDisabled === undefined){
+        node.dataset.lockPrevDisabled = node.disabled ? "1" : "0";
+      }
+      node.disabled = true;
+    } else if(node.dataset.lockPrevDisabled !== undefined){
+      node.disabled = node.dataset.lockPrevDisabled === "1";
+      delete node.dataset.lockPrevDisabled;
+    }
+  });
+}
+
+function applyFieldLocks(){
+  const wrap = el("stepFields");
+  if(!wrap) return;
+  const fields = currentStepFields();
+  let locked = false;
+  fields.forEach(field => {
+    const block = wrap.querySelector(`.field-block[data-field-id="${field.id}"]`);
+    setBlockLocked(block, locked);
+    if(!locked && fieldIsRequired(field) && !fieldHasAnswer(field)){
+      locked = true;
+    }
+  });
+  try{ syncSwiPanel(); }catch(e){}
+}
 
 function onModelChanged(){
   const modelEl = el("model");

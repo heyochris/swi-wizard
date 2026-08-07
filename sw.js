@@ -1,4 +1,4 @@
-const CACHE_NAME = "swi-wizard-v25";
+const CACHE_NAME = "swi-wizard-v26";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
