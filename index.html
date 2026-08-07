@@ -12446,6 +12446,18 @@ if(document.readyState === "loading"){
 
 // Install as an offline app icon (works after first visit even without a network connection)
 if("serviceWorker" in navigator){
+  var __swReloadArmed = false;
+  navigator.serviceWorker.addEventListener("message", function(ev){
+    if(ev && ev.data && ev.data.type === "SW_UPDATED" && !__swReloadArmed){
+      __swReloadArmed = true;
+      window.location.reload();
+    }
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", function(){
+    if(__swReloadArmed) return;
+    __swReloadArmed = true;
+    window.location.reload();
+  });
   window.addEventListener("load", function(){
     navigator.serviceWorker.register("sw.js").catch(function(e){ console.error("SW register failed", e); });
   });

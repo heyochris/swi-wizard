@@ -1,4 +1,4 @@
-const CACHE_NAME = "swi-wizard-v21";
+const CACHE_NAME = "swi-wizard-v22";
 const ASSETS = [
   "./index.html",
   "./manifest.json",
@@ -25,14 +25,48 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    ).then(() => self.clients.claim()).then(() =>
+      self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+        clients.forEach((client) => client.postMessage({ type: "SW_UPDATED", cache: CACHE_NAME }));
+      })
+    )
   );
 });
 
-// Cache-first for everything in this app's scope: works fully offline once installed,
-// including the very first navigation request (no network round-trip, no login re-check).
+function isAppShellRequest(request, url) {
+  if (request.mode === "navigate") return true;
+  const path = url.pathname;
+  return path.endsWith("/") || path.endsWith("/index.html") || path.endsWith("swi-wizard");
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // HTML shell: network-first so Home Screen app picks up updates when online.
+  // Falls back to cache when offline.
+  if (isAppShellRequest(event.request, url)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put("./index.html", copy.clone());
+              cache.put(event.request, copy);
+            });
+          }
+          return res;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match("./index.html"))
+        )
+    );
+    return;
+  }
+
+  // Other assets: cache-first for offline PDFs/icons/scripts.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
