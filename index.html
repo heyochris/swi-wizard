@@ -11435,6 +11435,26 @@ function resumeWizard(){
   }
 }
 
+function showSetupError(msg){
+  const box = el("setupError");
+  if(!box){
+    alert(msg);
+    return;
+  }
+  box.textContent = msg;
+  box.classList.add("show");
+  try{ box.scrollIntoView({ block: "nearest", behavior: "smooth" }); }catch(e){}
+}
+window.showSetupError = showSetupError;
+
+function clearSetupError(){
+  const box = el("setupError");
+  if(!box) return;
+  box.textContent = "";
+  box.classList.remove("show");
+}
+window.clearSetupError = clearSetupError;
+
 function startWizard(){
   try{
     clearSetupError();
@@ -11529,7 +11549,8 @@ function startWizard(){
     try{ window.scrollTo(0, 0); }catch(e){}
   }catch(err){
     const msg = (err && err.message) ? err.message : String(err);
-    showSetupError("Could not start wizard: " + msg);
+    try{ showSetupError("Could not start wizard: " + msg); }
+    catch(e2){ try{ alert("Could not start wizard: " + msg); }catch(e3){} }
     console.error(err);
   }
 }
@@ -12396,24 +12417,6 @@ function bootWizard(){
     window.onModelChanged = onModelChanged;
     window.refreshCodeOptions = refreshCodeOptions;
 try{ loadStepPhotosFromIdb(); }catch(e){}
-
-function showSetupError(msg){
-  const box = el("setupError");
-  if(!box){
-    alert(msg);
-    return;
-  }
-  box.textContent = msg;
-  box.classList.add("show");
-  try{ box.scrollIntoView({ block: "nearest", behavior: "smooth" }); }catch(e){}
-}
-
-function clearSetupError(){
-  const box = el("setupError");
-  if(!box) return;
-  box.textContent = "";
-  box.classList.remove("show");
-}
 
     window.renderMobileDocLinks = renderMobileDocLinks;
     try{ if(window.__skUnlockCode) window.__skUnlockCode(); }catch(e){}
