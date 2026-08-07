@@ -1678,6 +1678,17 @@ try{ document.getElementById("jsOffBanner").style.display = "none"; }catch(e){}
   </div>
 </div>
 <script>
+var steps = [];
+var currentIndex = 0;
+/** Shared boat/job header for multi-code notes */
+var jobMeta = null;
+/** Finished code segments on this job: {code, codeTitle, bodyLines, summary} */
+var completedSegments = [];
+var activeCode = null;
+var activeCodeTitle = "";
+/** setup | wizard | report — used so Back-to-setup still resumes */
+var uiScreen = "setup";
+
 const SWI_PAGE_MAP = {
   "12":{start:4,end:20,title:"CODE 12/13/14 - Low brake pressure alarms",blurb:"1. CHECK hydraulic pressure in Seakeeper brake system as follows: a. TURN OFF high current DC/AC power breaker to Seakeeper. b. ENSURE Seakeeper flywheel at zero RPM at display/MFD app. c. ACTIVATE Brake Override. d. INSTALL Seakeeper pressure gauge (P/N 12830) or brake charge ho"},
   "13":{start:4,end:20,title:"CODE 12/13/14 - Low brake pressure alarms",blurb:"1. CHECK hydraulic pressure in Seakeeper brake system as follows: a. TURN OFF high current DC/AC power breaker to Seakeeper. b. ENSURE Seakeeper flywheel at zero RPM at display/MFD app. c. ACTIVATE Brake Override. d. INSTALL Seakeeper pressure gauge (P/N 12830) or brake charge ho"},
@@ -2693,17 +2704,6 @@ function isNoVoltageReading(fieldId, maxV = 0.9){
 }
 
 let stepRefreshTimer = null;
-
-let steps = [];
-let currentIndex = 0;
-/** Shared boat/job header for multi-code notes */
-let jobMeta = null;
-/** Finished code segments on this job: {code, codeTitle, bodyLines, summary} */
-let completedSegments = [];
-let activeCode = null;
-let activeCodeTitle = "";
-/** setup | wizard | report — used so Back-to-setup still resumes */
-let uiScreen = "setup";
 
 const MODELS = [
   "Seakeeper 1",
