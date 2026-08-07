@@ -2693,6 +2693,38 @@ function isNoVoltageReading(fieldId, maxV = 0.9){
 }
 
 let stepRefreshTimer = null;
+
+let steps = [];
+let currentIndex = 0;
+/** Shared boat/job header for multi-code notes */
+let jobMeta = null;
+/** Finished code segments on this job: {code, codeTitle, bodyLines, summary} */
+let completedSegments = [];
+let activeCode = null;
+let activeCodeTitle = "";
+/** setup | wizard | report — used so Back-to-setup still resumes */
+let uiScreen = "setup";
+
+const MODELS = [
+  "Seakeeper 1",
+  "Seakeeper 2",
+  "Seakeeper 3",
+  "Seakeeper 4",
+  "Seakeeper 4.5",
+  "Seakeeper 5",
+  "Seakeeper 6",
+  "Seakeeper 9",
+  "Seakeeper 10",
+  "Seakeeper 14",
+  "Seakeeper 16",
+  "Seakeeper 18",
+  "Seakeeper 26",
+  "Seakeeper 30",
+  "Seakeeper 35",
+  "Seakeeper 40",
+  "M-Series",
+];
+
 function currentStepHasConditions(){
   const step = activeSteps()[currentIndex];
   return !!(step && step.fields.some(f => typeof f.condition === "function"));
